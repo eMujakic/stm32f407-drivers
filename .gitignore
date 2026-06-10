@@ -1,0 +1,6 @@
+STM32F407VGTX_FLASH.ld
+STM32F407VGTX_RAM.ld
+Startup/
+.settings/
+.cproject
+.project
