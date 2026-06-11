@@ -15,6 +15,17 @@
 #define DISABLE 		0
 #define SET					ENABLE
 #define RESET 			DISABLE
+typedef enum {
+	STATUS_OK = 0,
+	STATUS_ERROR,
+	STATUS_INVALID_PARAM
+} status_t;
+
+
+/***********************************************************************
+ * 																TODO
+ ***********************************************************************/
+
 
 //  ======================= base addresses of FLASH and SRAM memories =======================
 #define FLASH_BASE_ADDR 			0x08000000UL				// the base addr of the flash memory
@@ -79,8 +90,9 @@
 #define SPI6_BASE_ADDR				0x40015400UL			// base addr of SPI6 register set
 
 
-
-
+/***********************************************************************
+ * 																TODO
+ ***********************************************************************/
 
 
 // ======================= RCC register struct =======================
@@ -116,7 +128,7 @@ typedef struct
 	volatile uint32_t __RESERVED_6[2];			// RESERVED
 	volatile uint32_t SSCGR;								// spread spectrum clock generation register
 	volatile uint32_t PLLI2SCFGR;					// PLLI2S configuration register
-} RCC_REG_T;
+} RCC_reg_t;
 
 // ======================= GPIO register struct =======================
 typedef struct
@@ -130,7 +142,7 @@ typedef struct
 	volatile uint32_t BSRR;								// GPIO port set/reset register
 	volatile uint32_t LCKR;								// locks the config.of the port bits
 	volatile uint32_t AFR[2];							// alternate function LOW [0] & HIGH register
-} GPIO_REG_T;
+} GPIO_reg_t;
 
 // ======================= SPI register struct =======================
 typedef struct
@@ -144,31 +156,27 @@ typedef struct
 	volatile uint32_t TXCRCR;						// TX CRC register
 	volatile uint32_t I2SCFGR;						// I2S config. register
 	volatile uint32_t I2SPR;							// I2S prescaler register
-} SPI_REG_T;
-
-
-
-
-
-
+} SPI_reg_t;
 
 // =======================  type-casted macros =======================
-#define GPIOA					(GPIO_REG_T*)		GPIOA_BASE_ADDR
-#define GPIOB					(GPIO_REG_T*)		GPIOB_BASE_ADDR
-#define GPIOC					(GPIO_REG_T*)		GPIOC_BASE_ADDR
-#define GPIOD					(GPIO_REG_T*)		GPIOD_BASE_ADDR
-#define GPIOE					(GPIO_REG_T*)		GPIOE_BASE_ADDR
-#define GPIOF					(GPIO_REG_T*)		GPIOF_BASE_ADDR
-#define GPIOG					(GPIO_REG_T*)		GPIOG_BASE_ADDR
-#define GPIOH					(GPIO_REG_T*)		GPIOH_BASE_ADDR
-#define GPIOI					(GPIO_REG_T*)		GPIOI_BASE_ADDR
-#define GPIOJ					(GPIO_REG_T*)		GPIOJ_BASE_ADDR
-#define GPIOK					(GPIO_REG_T*)		GPIOK_BASE_ADDR
+#define GPIOA					( (GPIO_reg_t*)		GPIOA_BASE_ADDR )
+#define GPIOB					( (GPIO_reg_t*)		GPIOB_BASE_ADDR )
+#define GPIOC					( (GPIO_reg_t*)		GPIOC_BASE_ADDR )
+#define GPIOD					( (GPIO_reg_t*)		GPIOD_BASE_ADDR )
+#define GPIOE					( (GPIO_reg_t*)		GPIOE_BASE_ADDR )
+#define GPIOF					( (GPIO_reg_t*)		GPIOF_BASE_ADDR )
+#define GPIOG					( (GPIO_reg_t*)		GPIOG_BASE_ADDR )
+#define GPIOH					( (GPIO_reg_t*)		GPIOH_BASE_ADDR )
+#define GPIOI					( (GPIO_reg_t*)		GPIOI_BASE_ADDR )
+#define GPIOJ					( (GPIO_reg_t*)		GPIOJ_BASE_ADDR )
+#define GPIOK					( (GPIO_reg_t*)		GPIOK_BASE_ADDR )
 
-#define RCC						(RCC_REG_T*)		 	RCC_BASE_ADDR
+#define RCC						( (RCC_reg_t*)		 	RCC_BASE_ADDR )
 
 
-
+/***********************************************************************
+ * 																TODO
+ ***********************************************************************/
 
 
 // ======================= GPIO clock enable/disable macros =======================

@@ -14,12 +14,25 @@
  *
  * @param[in]       	- pointer to a struct containing GPIO port pointer and config struct
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_init(GPIO_handle_t *pGPIOHandle)
+status_t GPIO_init(GPIO_handle_t *pGPIOHandle)
 {
+	// 1. Configure the mode of GPIO pin
+
+
+	// 2. Configure the speed of GPIO pin
+
+
+	// 3. Configure pull-up/pull-down settings of GPIO pin
+
+
+	// 4. Configure the output type
+
+
+	// 4. Configure the alternate functionality
 
 }
 
@@ -30,11 +43,11 @@ void GPIO_init(GPIO_handle_t *pGPIOHandle)
  *
  * @param[in]       	- base address of the GPIO port peripheral
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_Reset(GPIO_REG_T *pGPIOx)
+status_t GPIO_Reset(GPIO_reg_t *pGPIOx)
 {
 
 }
@@ -47,13 +60,61 @@ void GPIO_Reset(GPIO_REG_T *pGPIOx)
  * @param[in]       	- base address of the GPIO port peripheral
  * @param[in]        	- ENABLE or DISABLE macro
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_PeriClkCtl(GPIO_REG_T *pGPIOx, uint8_t enable)
+status_t GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable)
 {
+	if (! pGPIOx) return STATUS_INVALID_PARAM;
 
+	if(enable){
+		if(pGPIOx == GPIOA)
+			GPIOA_PCLK_EN();
+		else if(pGPIOx == GPIOB)
+			GPIOB_PCLK_EN();
+		else if(pGPIOx == GPIOC)
+			GPIOC_PCLK_EN();
+		else if(pGPIOx == GPIOD)
+			GPIOD_PCLK_EN();
+		else if(pGPIOx == GPIOE)
+			GPIOE_PCLK_EN();
+		else if(pGPIOx == GPIOF)
+			GPIOF_PCLK_EN();
+		else if(pGPIOx == GPIOG)
+			GPIOG_PCLK_EN();
+		else if(pGPIOx == GPIOH)
+			GPIOH_PCLK_EN();
+		else if(pGPIOx == GPIOI)
+			GPIOI_PCLK_EN();
+		else
+			return STATUS_INVALID_PARAM;
+	}
+	else
+	{
+		if(pGPIOx == GPIOA)
+			GPIOA_PCLK_DI();
+		else if(pGPIOx == GPIOB)
+			GPIOB_PCLK_DI();
+		else if(pGPIOx == GPIOC)
+			GPIOC_PCLK_DI();
+		else if(pGPIOx == GPIOD)
+			GPIOD_PCLK_DI();
+		else if(pGPIOx == GPIOE)
+			GPIOE_PCLK_DI();
+		else if(pGPIOx == GPIOF)
+			GPIOF_PCLK_DI();
+		else if(pGPIOx == GPIOG)
+			GPIOG_PCLK_DI();
+		else if(pGPIOx == GPIOH)
+			GPIOH_PCLK_DI();
+		else if(pGPIOx == GPIOI)
+			GPIOI_PCLK_DI();
+		else
+			return STATUS_INVALID_PARAM;
+	}
+
+	return STATUS_OK;
 }
 
 /*********************************************************************
@@ -68,7 +129,7 @@ void GPIO_PeriClkCtl(GPIO_REG_T *pGPIOx, uint8_t enable)
  *
  * @Note            		-  none
  **********************************************************************/
-uint8_t GPIO_ReadPin(GPIO_REG_T *pGPIOx, uint8_t pinNumber)
+uint8_t GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 {
 
 }
@@ -84,7 +145,7 @@ uint8_t GPIO_ReadPin(GPIO_REG_T *pGPIOx, uint8_t pinNumber)
  *
  * @Note            		-  none
  **********************************************************************/
-uint16_t GPIO_ReadPort(GPIO_REG_T *pGPIOx)
+uint16_t GPIO_ReadPort(GPIO_reg_t *pGPIOx)
 {
 
 }
@@ -98,11 +159,11 @@ uint16_t GPIO_ReadPort(GPIO_REG_T *pGPIOx)
  * @param[in]        	- the number of the pin to write to
  * @param[in]			- the value to be written using the SET / RESET macro
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_WritePin(GPIO_REG_T *pGPIOx, uint8_t pinNumber, uint8_t val)
+status_t GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val)
 {
 
 }
@@ -114,11 +175,11 @@ void GPIO_WritePin(GPIO_REG_T *pGPIOx, uint8_t pinNumber, uint8_t val)
  *
  * @param[in]       	- base address of the GPIO port peripheral
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_WritePort(GPIO_REG_T *pGPIOx, uint16_t val)
+status_t GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val)
 {
 
 }
@@ -131,11 +192,11 @@ void GPIO_WritePort(GPIO_REG_T *pGPIOx, uint16_t val)
  * @param[in]       	- base address of the GPIO port peripheral
  * @param[in]        	- the pin number of the pin to toggle
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_ToggleOutputPin(GPIO_REG_T *pGPIOx, uint8_t pinNumber)
+status_t GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 {
 
 }
@@ -149,11 +210,11 @@ void GPIO_ToggleOutputPin(GPIO_REG_T *pGPIOx, uint8_t pinNumber)
  * @param[in]        	- TODO
  * @param[in]        	- TODO
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t enable)
+status_t GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t enable)
 {
 
 }
@@ -165,11 +226,11 @@ void GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t enable)
  *
  * @param[in]       	- TODO
  *
- * @return           		-  none
+ * @return           		-  status indicating whether the command was successful or not
  *
  * @Note            		-  none
  **********************************************************************/
-void GPIO_IRQHandling(uint8_t pinNumber)
+status_t GPIO_IRQHandling(uint8_t pinNumber)
 {
 
 }
