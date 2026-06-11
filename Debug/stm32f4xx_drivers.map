@@ -60,6 +60,7 @@ Discarded input sections
  .group         0x00000000        0xc ./Src/main.o
  .group         0x00000000        0xc ./Src/main.o
  .group         0x00000000        0xc ./Src/main.o
+ .group         0x00000000        0xc ./Src/main.o
  .text          0x00000000        0x0 ./Src/main.o
  .data          0x00000000        0x0 ./Src/main.o
  .bss           0x00000000        0x0 ./Src/main.o
@@ -815,24 +816,25 @@ LOAD /opt/st/stm32cubeide_2.1.1/plugins/com.st.stm32cube.ide.mcu.externaltools.g
  .debug_rnglists
                 0x00000013       0x19 ./Startup/startup_stm32f407vgtx.o
 
-.debug_macro    0x00000000      0xf9e
- .debug_macro   0x00000000       0x6d ./Src/main.o
- .debug_macro   0x0000006d      0xae4 ./Src/main.o
- .debug_macro   0x00000b51       0x22 ./Src/main.o
- .debug_macro   0x00000b73       0x8e ./Src/main.o
- .debug_macro   0x00000c01       0x51 ./Src/main.o
- .debug_macro   0x00000c52      0x103 ./Src/main.o
- .debug_macro   0x00000d55       0x6a ./Src/main.o
- .debug_macro   0x00000dbf      0x1df ./Src/main.o
+.debug_macro    0x00000000     0x121f
+ .debug_macro   0x00000000       0x6c ./Src/main.o
+ .debug_macro   0x0000006c      0xae4 ./Src/main.o
+ .debug_macro   0x00000b50       0x22 ./Src/main.o
+ .debug_macro   0x00000b72       0x8e ./Src/main.o
+ .debug_macro   0x00000c00       0x51 ./Src/main.o
+ .debug_macro   0x00000c51      0x103 ./Src/main.o
+ .debug_macro   0x00000d54       0x6a ./Src/main.o
+ .debug_macro   0x00000dbe      0x1df ./Src/main.o
+ .debug_macro   0x00000f9d      0x282 ./Src/main.o
 
 .debug_line     0x00000000      0x412
  .debug_line    0x00000000      0x397 ./Src/main.o
  .debug_line    0x00000397       0x7b ./Startup/startup_stm32f407vgtx.o
 
-.debug_str      0x00000000     0x3c83
- .debug_str     0x00000000     0x3c83 ./Src/main.o
-                               0x3d9f (size before relaxing)
- .debug_str     0x00003c83       0x75 ./Startup/startup_stm32f407vgtx.o
+.debug_str      0x00000000     0x4ad4
+ .debug_str     0x00000000     0x4ad4 ./Src/main.o
+                               0x4bf0 (size before relaxing)
+ .debug_str     0x00004ad4       0x75 ./Startup/startup_stm32f407vgtx.o
 
 .comment        0x00000000       0x43
  .comment       0x00000000       0x43 ./Src/main.o
