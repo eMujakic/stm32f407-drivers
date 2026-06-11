@@ -10,6 +10,12 @@
 
 #include<stdint.h>
 
+// ======================= generic macros =======================
+#define ENABLE 		1
+#define DISABLE 		0
+#define SET					ENABLE
+#define RESET 			DISABLE
+
 //  ======================= base addresses of FLASH and SRAM memories =======================
 #define FLASH_BASE_ADDR 			0x08000000UL				// the base addr of the flash memory
 #define SRAM1_BASE_ADDR 			0x20000000UL				// 112 KBs
