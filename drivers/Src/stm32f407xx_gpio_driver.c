@@ -11,7 +11,7 @@ static void inline GPIO_write_field(volatile uint32_t *reg, GPIO_pin_number_t pi
 {
 	uint32_t shift 	= width * pin;
 	uint32_t mask = ((1U << width) - 1U) << shift;
-	attr 					 &= ((1U << width) - 1U) ;
+	attr 					 &= ((1U << width) - 1U) ;					// mask attr with only the first "width" bits
 
 	// clear current register bits
 	*reg &= ~mask;
@@ -90,7 +90,28 @@ status_t GPIO_init(GPIO_handle_t *pGPIOHandle)
  **********************************************************************/
 status_t GPIO_Reset(GPIO_reg_t *pGPIOx)
 {
+	if(pGPIOx == GPIOA)
+		GPIOA_RESET();
+	else if(pGPIOx == GPIOB)
+		GPIOB_RESET();
+	else if(pGPIOx == GPIOC)
+		GPIOC_RESET();
+	else if(pGPIOx == GPIOD)
+		GPIOD_RESET();
+	else if(pGPIOx == GPIOE)
+		GPIOE_RESET();
+	else if(pGPIOx == GPIOF)
+		GPIOF_RESET();
+	else if(pGPIOx == GPIOG)
+		GPIOG_RESET();
+	else if(pGPIOx == GPIOH)
+		GPIOH_RESET();
+	else if(pGPIOx == GPIOI)
+		GPIOI_RESET();
+	else
+		return STATUS_INVALID_PARAM;
 
+	return STATUS_OK;
 }
 
 /*********************************************************************
@@ -166,13 +187,15 @@ status_t GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable)
  * @param[in]       	- base address of the GPIO port peripheral
  * @param[in]        	- pin number to read value from
  *
- * @return           		-  returns the read value from the input register
+ * @return           		-  returns the read value from the input register (0 or 1)
  *
  * @Note            		-  none
  **********************************************************************/
 uint8_t GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 {
+	if(pinNumber > GPIO_PIN_15 || ! pGPIOx) return 0;
 
+	return (uint8_t) ( (pGPIOx->IDR >> pinNumber) & 1U );
 }
 
 /*********************************************************************
@@ -188,7 +211,9 @@ uint8_t GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
  **********************************************************************/
 uint16_t GPIO_ReadPort(GPIO_reg_t *pGPIOx)
 {
+	if(! pGPIOx) return 0;
 
+	return (uint16_t) pGPIOx->IDR;
 }
 
 /*********************************************************************
@@ -206,7 +231,14 @@ uint16_t GPIO_ReadPort(GPIO_reg_t *pGPIOx)
  **********************************************************************/
 status_t GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val)
 {
+	if(pinNumber > GPIO_PIN_15 || ! pGPIOx) return STATUS_INVALID_PARAM;
 
+	// uses BSRR register for atomic bit set/reset
+	pGPIOx->BSRR = (val == SET)
+	                    ? (1U << pinNumber)					// SET bit
+	                    : (1U << (pinNumber + 16U));	// RESET bit
+
+	return STATUS_OK;
 }
 
 /*********************************************************************
@@ -222,7 +254,11 @@ status_t GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val)
  **********************************************************************/
 status_t GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val)
 {
+	if(! pGPIOx) return STATUS_INVALID_PARAM;
 
+	pGPIOx->ODR = (uint32_t) val;
+
+	return STATUS_OK;
 }
 
 /*********************************************************************
@@ -239,7 +275,13 @@ status_t GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val)
  **********************************************************************/
 status_t GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 {
+	if(pinNumber > GPIO_PIN_15 || ! pGPIOx) return STATUS_INVALID_PARAM;
 
+	pGPIOx->BSRR = ( pGPIOx->ODR & (1U << pinNumber) )
+		                    ? (1U << (pinNumber + 16U))		// if HIGH then RESET
+		                    :  (1U << pinNumber);						// if LOW then SET
+
+	return STATUS_OK;
 }
 
 /*********************************************************************

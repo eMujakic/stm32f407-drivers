@@ -238,6 +238,24 @@ typedef struct
 #define UART5_PCLK_DI()			( RCC->APB1ENR &= ~( 1 << 20 ) )
 #define USART6_PCLK_DI()			( RCC->APB2ENR &= ~( 1 << 5 ) )
 
+
+/***********************************************************************
+ * 																TODO
+ ***********************************************************************/
+
+
+// ======================= 	GPIO reset macros =======================
+#define GPIOA_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 0  )  ); (  RCC->AHB1RSTR &= ~( 1U << 0  )  );  } while(0)
+#define GPIOB_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 1  )  ); (  RCC->AHB1RSTR &= ~( 1U << 1  )  );  } while(0)
+#define GPIOC_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 2  )  ); (  RCC->AHB1RSTR &= ~( 1U << 2  )  );  } while(0)
+#define GPIOD_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 3  )  ); (  RCC->AHB1RSTR &= ~( 1U << 3  )  );  } while(0)
+#define GPIOE_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 4  )  ); (  RCC->AHB1RSTR &= ~( 1U << 4  )  );  } while(0)
+#define GPIOF_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 5  )  ); (  RCC->AHB1RSTR &= ~( 1U << 5  )  );  } while(0)
+#define GPIOG_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 6  )  ); (  RCC->AHB1RSTR &= ~( 1U << 6  )  );  } while(0)
+#define GPIOH_RESET()			do{ (  RCC->AHB1RSTR |= ( 1U << 7  )  ); (  RCC->AHB1RSTR &= ~( 1U << 7  )  );  } while(0)
+#define GPIOI_RESET()				do{ (  RCC->AHB1RSTR |= ( 1U << 8  )  ); (  RCC->AHB1RSTR &= ~( 1U << 8  )  );  } while(0)
+
+#include "stm32f407xx_gpio_driver.h"
 #endif /* INC_STM32F407XX_H_ */
 
 
