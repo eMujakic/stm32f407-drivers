@@ -69,6 +69,26 @@ typedef enum
 	GPIO_PIN_15,
 } GPIO_pin_number_t;
 
+// ====================== GPIO pin number enum ======================
+typedef enum
+{
+	GPIO_AF0 = 0,
+	GPIO_AF1,
+	GPIO_AF2,
+	GPIO_AF3,
+	GPIO_AF4,
+	GPIO_AF5,
+	GPIO_AF6,
+	GPIO_AF7,
+	GPIO_AF8,
+	GPIO_AF9,
+	GPIO_AF10,
+	GPIO_AF11,
+	GPIO_AF12,
+	GPIO_AF13,
+	GPIO_AF14,
+	GPIO_AF15
+} GPIO_altfn_mode_t;
 // ====================== Configuration structure for a GPIO pin ======================
 typedef struct
 {
@@ -77,7 +97,7 @@ typedef struct
 	GPIO_speed_t 				speed;
     GPIO_PUPD_t 					puPdCtl;
 	GPIO_out_t 						outType;
-	uint8_t 								altFuncMode;
+	GPIO_altfn_mode_t 		altFuncMode;
 } GPIO_pin_config_t;
 
 // ====================== Handle structure for a GPIO pin ======================
@@ -87,25 +107,25 @@ typedef struct
 	GPIO_pin_config_t GPIO_PinConfig;		// holds GPIO pin config settings
 } GPIO_handle_t;
 
-/*****************************************************************************
+/*********************************************************************************
  * 																APIs supported by this driver
  * 												Check function definitions for more information
- ******************************************************************************/
+ *********************************************************************************/
 
-status_t GPIO_init(GPIO_handle_t *pGPIOHandle);																// TODO
-status_t GPIO_Reset(GPIO_reg_t *pGPIOx);																				// TODO
+status_t	GPIO_init(GPIO_handle_t *pGPIOHandle);																	// TODO
+status_t 	GPIO_Reset(GPIO_reg_t *pGPIOx);																				// TODO
 
-status_t GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable);										// can enable/disable the clock for a given GPIO base addr
+status_t	GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable);										// can enable/disable the clock for a given GPIO base addr
 
-uint8_t GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);										// TODO
-uint16_t GPIO_ReadPort(GPIO_reg_t *pGPIOx);																		// TODO
+uint8_t 	 	GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);									// TODO
+uint16_t 	GPIO_ReadPort(GPIO_reg_t *pGPIOx);																		// TODO
 
-status_t GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val);			// TODO
-status_t GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val);												// TODO
-status_t GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);					// TODO
+status_t 	GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val);				// TODO
+status_t 	GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val);												// TODO
+status_t 	GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);					// TODO
 
-status_t GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t enable);		// TODO
-status_t GPIO_IRQHandling(uint8_t pinNumber);																	// TODO
+status_t 	GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t enable);		// TODO
+status_t 	GPIO_IRQHandling(uint8_t pinNumber);																	// TODO
 
 
 
