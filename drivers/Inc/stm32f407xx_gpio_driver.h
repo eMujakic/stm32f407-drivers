@@ -16,16 +16,13 @@ typedef enum
 	GPIO_MODE_IN = 0,
 	GPIO_MODE_OUT,
 	GPIO_MODE_ALTFN,						// alternate-function mode
-	GPIO_MODE_ANALOG
-} GPIO_mode_t;
+	GPIO_MODE_ANALOG,
 
-// ====================== GPIO pin interrupt mode enum ======================
-typedef enum
-{
-	GPIO_MODE_IT_FT = 4,					// interrupt falling-edge trigger
+	// ================= INTERRUPT MODES =================
+	GPIO_MODE_IT_FT,						// interrupt falling-edge trigger
 	GPIO_MODE_IT_RT,						// interrupt rising-edge trigger
 	GPIO_MODE_IT_RFT						// interrupt rising & falling-edge trigger
-} GPIO_it_mode_t;
+} GPIO_mode_t;
 
 // ====================== GPIO output type enum ======================
 typedef enum

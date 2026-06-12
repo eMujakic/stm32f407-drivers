@@ -18,22 +18,80 @@
  *
  * @Note            		-  none
  **********************************************************************/
-status_t GPIO_init(GPIO_handle_t *pGPIOHandle)
+status_t GPIO_init(GPIO_handle_t *pGPIOHandle)				// TODO optimize by removing redundant variables and mask/shift sets/resets
 {
-	// 1. Configure the mode of GPIO pin
+	uint32_t shift 	= 0;
+	uint32_t mask = 0;
+
+	// ======================== 1. Configure the mode of GPIO pin ========================
+	if(pGPIOHandle->GPIO_PinConfig.mode <= GPIO_MODE_ANALOG)		// non-interrupt modes
+	{
+	    shift 						= 2U * pGPIOHandle->GPIO_PinConfig.pinNumber;
+		uint32_t mode 	= (uint32_t) (pGPIOHandle->GPIO_PinConfig.mode & 0x3U);
+		mask 						= (0x3U << shift);
+
+		// clear the current 2 mode bits
+		pGPIOHandle->pGPIOx->MODER &= ~mask;
+
+		// set the new mode bits
+		pGPIOHandle->pGPIOx->MODER |= (mode << shift);
+	}
+	else																						// interrupt modes
+	{
+			// TODO set interrupt modes
+	}
+
+	shift 	= 0;
+	mask 	= 0;
+
+	// ======================== 2. Configure the speed of GPIO pin ========================
+	shift 						= 2U * pGPIOHandle->GPIO_PinConfig.pinNumber;
+	uint32_t speed 	= (uint32_t) ( pGPIOHandle->GPIO_PinConfig.speed & 0x3U);
+	mask 						= (3U << shift);
+
+	// clear the current 2 speed bits
+	pGPIOHandle->pGPIOx->OSPEEDR &= ~mask;
+
+	// set the new speed bits
+	pGPIOHandle->pGPIOx->OSPEEDR |= (speed << shift);
+
+	shift = 0;
+	mask  = 0;
+
+	// 3. ======================== Configure pull-up/pull-down settings of GPIO pin ========================
+	shift 						= 2U * pGPIOHandle->GPIO_PinConfig.pinNumber;
+	uint32_t pupd		= (uint32_t) (pGPIOHandle->GPIO_PinConfig.puPdCtl & 0x3U);
+	mask 						= (0x3U << shift);
+
+	// clear the current 2 PU/PD bits
+	pGPIOHandle->pGPIOx->PUPDR &= ~mask;
+
+	// set the new PU/PD bits
+	pGPIOHandle->pGPIOx->PUPDR |= (pupd << shift);
 
 
-	// 2. Configure the speed of GPIO pin
+	shift = 0;
+	mask  = 0;
 
+	// 4. ======================== Configure the output type ========================
+	shift 						=  pGPIOHandle->GPIO_PinConfig.pinNumber;
+	uint32_t oType 	= (uint32_t) (pGPIOHandle->GPIO_PinConfig.outType & 0x1U);
+	mask 						= (0x1U << shift);
 
-	// 3. Configure pull-up/pull-down settings of GPIO pin
+	// clear the current 2 output-type bits
+	pGPIOHandle->pGPIOx->OTYPER &= ~mask;
 
+	// set the new output-type bits
+	pGPIOHandle->pGPIOx->OTYPER |= (pupd << shift);
 
-	// 4. Configure the output type
+	shift = 0;
+	mask  = 0;
 
+	// 4. ======================== Configure the alternate functionality ========================
+	if(pGPIOHandle->GPIO_PinConfig.mode == GPIO_MODE_ALTFN)
+	{
 
-	// 4. Configure the alternate functionality
-
+	}
 }
 
 /*********************************************************************

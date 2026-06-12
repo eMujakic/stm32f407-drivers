@@ -279,7 +279,7 @@ Discarded input sections
  .data          0x00000000        0x0 ./drivers/Src/stm32f407xx_gpio_driver.o
  .bss           0x00000000        0x0 ./drivers/Src/stm32f407xx_gpio_driver.o
  .text.GPIO_init
-                0x00000000       0x16 ./drivers/Src/stm32f407xx_gpio_driver.o
+                0x00000000       0x34 ./drivers/Src/stm32f407xx_gpio_driver.o
  .text.GPIO_Reset
                 0x00000000       0x16 ./drivers/Src/stm32f407xx_gpio_driver.o
  .text.GPIO_PeriClkCtl
@@ -298,8 +298,8 @@ Discarded input sections
                 0x00000000       0x20 ./drivers/Src/stm32f407xx_gpio_driver.o
  .text.GPIO_IRQHandling
                 0x00000000       0x18 ./drivers/Src/stm32f407xx_gpio_driver.o
- .debug_info    0x00000000      0x6dd ./drivers/Src/stm32f407xx_gpio_driver.o
- .debug_abbrev  0x00000000       0xf2 ./drivers/Src/stm32f407xx_gpio_driver.o
+ .debug_info    0x00000000      0x6fe ./drivers/Src/stm32f407xx_gpio_driver.o
+ .debug_abbrev  0x00000000      0x103 ./drivers/Src/stm32f407xx_gpio_driver.o
  .debug_aranges
                 0x00000000       0x68 ./drivers/Src/stm32f407xx_gpio_driver.o
  .debug_rnglists
@@ -313,8 +313,8 @@ Discarded input sections
  .debug_macro   0x00000000       0x6a ./drivers/Src/stm32f407xx_gpio_driver.o
  .debug_macro   0x00000000      0x1df ./drivers/Src/stm32f407xx_gpio_driver.o
  .debug_macro   0x00000000      0x294 ./drivers/Src/stm32f407xx_gpio_driver.o
- .debug_line    0x00000000      0x500 ./drivers/Src/stm32f407xx_gpio_driver.o
- .debug_str     0x00000000     0x5106 ./drivers/Src/stm32f407xx_gpio_driver.o
+ .debug_line    0x00000000      0x51a ./drivers/Src/stm32f407xx_gpio_driver.o
+ .debug_str     0x00000000     0x513c ./drivers/Src/stm32f407xx_gpio_driver.o
  .comment       0x00000000       0x44 ./drivers/Src/stm32f407xx_gpio_driver.o
  .debug_frame   0x00000000      0x178 ./drivers/Src/stm32f407xx_gpio_driver.o
  .ARM.attributes
