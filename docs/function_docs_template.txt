@@ -12,6 +12,3 @@
  *
  * @note	TODO
  ***************************************************************************/
- 
- Status indicating whether the command was successful (STATUS_OK)
- *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
