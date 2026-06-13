@@ -3,3 +3,5 @@ STM32F407VGTX_RAM.ld
 .settings/
 .cproject
 .project
+Debug/
+stm32f4xx_drivers Debug.launch
