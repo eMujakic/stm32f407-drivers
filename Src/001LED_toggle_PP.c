@@ -30,7 +30,7 @@ int main(void){
 	gpio_led.GPIO_PinConfig.speed  = GPIO_SPEED_HIGH;
 
 	GPIO_PeriClkCtl(LED_PORT, ENABLE);
-	GPIO_init(&gpio_led);
+	GPIO_Config(&gpio_led);
 
 	while(1)
 	{

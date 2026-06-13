@@ -35,7 +35,7 @@ int main(void)
 	gpio_led.GPIO_PinConfig.speed  = GPIO_SPEED_HIGH;
 
 	GPIO_PeriClkCtl(LED_PORT, ENABLE);
-	GPIO_init(&gpio_led);
+	GPIO_Config(&gpio_led);
 
 	// GPIO button configuration and initialization
 	GPIO_handle_t gpio_button;
@@ -45,7 +45,7 @@ int main(void)
 	gpio_led.GPIO_PinConfig.puPdCtl  = GPIO_NO_PUPD;		// no PD needed since it's is already on-board
 
 	GPIO_PeriClkCtl(BUTTON_PORT, ENABLE);
-	GPIO_init(&gpio_button);
+	GPIO_Config(&gpio_button);
 
 	while(1)
 	{

@@ -1,0 +1,17 @@
+/**************************************************************************
+ * @fn		TODO
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
+ 
+ Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).

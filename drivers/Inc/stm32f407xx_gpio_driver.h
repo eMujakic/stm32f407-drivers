@@ -18,7 +18,7 @@ typedef enum
 	GPIO_MODE_ALTFN,						// alternate-function mode
 	GPIO_MODE_ANALOG,
 
-	// ================= INTERRUPT MODES =================
+	//  ***** INTERRUPT MODES *****
 	GPIO_MODE_IT_FT,						// interrupt falling-edge trigger
 	GPIO_MODE_IT_RT,						// interrupt rising-edge trigger
 	GPIO_MODE_IT_RFT						// interrupt rising & falling-edge trigger
@@ -27,7 +27,7 @@ typedef enum
 // ====================== GPIO output type enum ======================
 typedef enum
 {
-	GPIO_OTYPE_PP	 = 0,						// push-pull
+	GPIO_OTYPE_PP	 = 0,					// push-pull
 	GPIO_OTYPE_OD							// open-drain
 } GPIO_out_t;
 
@@ -44,8 +44,8 @@ typedef enum
 typedef enum
 {
 	GPIO_NO_PUPD = 0,						// no pull-up / pull-down
-	GPIO_PIN_PU,								// pull-up
-	GPIO_PIN_PD									// pull-down
+	GPIO_PIN_PU,							// pull-up
+	GPIO_PIN_PD								// pull-down
 } GPIO_PUPD_t;
 
 // ====================== GPIO pin number enum ======================
@@ -93,39 +93,42 @@ typedef enum
 typedef struct
 {
 	GPIO_pin_number_t 	pinNumber;
-	GPIO_mode_t 					mode;
-	GPIO_speed_t 				speed;
-    GPIO_PUPD_t 					puPdCtl;
-	GPIO_out_t 						outType;
-	GPIO_altfn_mode_t 		altFuncMode;
+	GPIO_mode_t 		mode;
+	GPIO_speed_t 		speed;
+    GPIO_PUPD_t 		puPdCtl;
+	GPIO_out_t 			outType;
+	GPIO_altfn_mode_t 	altFuncMode;
 } GPIO_pin_config_t;
 
 // ====================== Handle structure for a GPIO pin ======================
 typedef struct
 {
-	GPIO_reg_t *pGPIOx;								// pointer to base addr of GPIO port
+	GPIO_reg_t *pGPIOx;						// pointer to base addr of GPIO port
 	GPIO_pin_config_t GPIO_PinConfig;		// holds GPIO pin config settings
 } GPIO_handle_t;
 
 /*********************************************************************************
- * 																APIs supported by this driver
- * 												Check function definitions for more information
+ * 							APIs supported by this driver
+ * 					Check function definitions for more information
  *********************************************************************************/
 
-status_t	GPIO_init(GPIO_handle_t *pGPIOHandle);																	// TODO
-status_t 	GPIO_Reset(GPIO_reg_t *pGPIOx);																				// TODO
+status_t 	GPIO_init(GPIO_pin_config_t *pConfig);									// Sets GPIO_pin_config_t struct to safe default values
+status_t	GPIO_Config(GPIO_handle_t *pGPIOHandle);								// Configures a GPIO pin according to GPIO_pin_config_t struct
+status_t 	GPIO_Reset(GPIO_reg_t *pGPIOx);											// Resets a GPIO port to default register values
 
-status_t	GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable);										// can enable/disable the clock for a given GPIO base addr
+status_t	GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable);					// Can enable/disable the clock for a given GPIO base addr
 
-uint8_t 	 	GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);									// TODO
-uint16_t 	GPIO_ReadPort(GPIO_reg_t *pGPIOx);																		// TODO
+uint8_t 	GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);					// Reads input data register bit for GPIO pin
+uint16_t 	GPIO_ReadPort(GPIO_reg_t *pGPIOx);										// Reads entire input data register of GPIO port
 
-status_t 	GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val);				// TODO
-status_t 	GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val);												// TODO
-status_t 	GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);					// TODO
+status_t 	GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val);		// Writes output data register bit for GPIO pin
+status_t 	GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val);						// Writes entire output data register of GPIO port
+status_t 	GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);			// Toggles output data register bit for GPIO pin
 
-status_t 	GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t enable);		// TODO
-status_t 	GPIO_IRQHandling(uint8_t pinNumber);																	// TODO
+status_t 	GPIO_IRQEnable(uint8_t IRQNumber);										// Enables IRQ number in the NVIC
+status_t 	GPIO_IRQDisable(uint8_t IRQNumber);										// Disables IRQ number in the NVIC
+status_t 	GPIO_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);				// Sets IRQ priority for IRQ number
+status_t 	GPIO_IRQHandling(uint8_t pinNumber);									// Clears EXTI pending bit
 
 
 

@@ -7,11 +7,29 @@
 
 #include "stm32f407xx_gpio_driver.h"
 
-static void inline GPIO_write_field(volatile uint32_t *reg, GPIO_pin_number_t pin, uint32_t width, uint32_t attr)
+/**************************************************************************
+ * @fn		GPIO_write_field
+ *
+ * @brief	Writes a value to a specific bit-field of a GPIO register.
+ *
+ * @details
+ * Performs a read-modify-write by masking and shifting the target
+ * field corresponding to the specified GPIO pin number.
+ *
+ * @param[in] reg		Pointer to the target 32-bit hardware register.
+ * @param[in] pin		GPIO pin number used to calculate the field position.
+ * @param[in] width		Width in bits of each pin's field in the register.
+ * @param[in] attr		Value to be written into the selected bit field.
+ *
+ * @return	None.
+ *
+ * @note	Assume the register layout is uniform per pin.
+ ***************************************************************************/
+static inline void GPIO_write_field(volatile uint32_t *reg, GPIO_pin_number_t pin, uint32_t width, uint32_t attr)
 {
 	uint32_t shift 	= width * pin;
-	uint32_t mask = ((1U << width) - 1U) << shift;
-	attr 					 &= ((1U << width) - 1U) ;					// mask attr with only the first "width" bits
+	uint32_t mask 	= ((1U << width) - 1U) << shift;
+	attr 			&= ((1U << width) - 1U) ;		// mask attr with only the first "width" bits
 
 	// clear current register bits
 	*reg &= ~mask;
@@ -20,37 +38,156 @@ static void inline GPIO_write_field(volatile uint32_t *reg, GPIO_pin_number_t pi
 	*reg |= (attr << shift);
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_init
+
+ /**************************************************************************
+ * @fn		GPIO_init
  *
- * @brief             		- This function initializes a give GPIO pin according to the config settings in the handle
+ * @brief	Initializes a GPIO_pin_config_t struct with safe default values.
  *
- * @param[in]       	- pointer to a struct containing GPIO port pointer and config struct
+ * @details
+ * Sets the configuration to:
+ *		- Pin 0
+ *		- Input mode
+ *		- Medium speed
+ *		- No pull-up/pull-down
+ *		- Push-pull output type
+ *		- Alternate function 0
  *
- * @return           		-  status indicating whether the command was successful or not
+ * @param[in] pConfig	A pointer to the configuration struct to be initialized.
  *
- * @Note            		-  none
- **********************************************************************/
-status_t GPIO_init(GPIO_handle_t *pGPIOHandle)
+ * @return	None.
+ *
+ * @note	None.
+ ***************************************************************************/
+status_t GPIO_init(GPIO_pin_config_t *pConfig)
 {
-	if(!pGPIOHandle) return STATUS_INVALID_PARAM;											// validate handle
+	if(!pConfig) return STATUS_INVALID_PARAM;
+
+    pConfig->pinNumber  = GPIO_PIN_0;
+    pConfig->mode       = GPIO_MODE_IN;
+    pConfig->speed      = GPIO_SPEED_MED;
+    pConfig->puPdCtl    = GPIO_NO_PUPD;
+    pConfig->outType    = GPIO_OTYPE_PP;
+    pConfig->altFuncMode = GPIO_AF0;
+
+	return STATUS_OK;
+}
+
+ /**************************************************************************
+ * @fn		GPIO_port_to_idx
+ *
+ * @brief	Converts a GPIO base address to its corresponding 0-based index.
+ *
+ * @param[in] GPIOx		Pointer to the base address of the GPIO peripheral.
+ *
+ * @return
+ *		0-10	: Valid GPIO port index.
+ * 		-1		: Invalid GPIO port pointer.
+ *
+ * @note	The returned value corresponds to the encoding required for
+ *			SYSCFG->EXTICR bit-fields, as well as GPIO clock enable/disable
+ *			macros.
+ ***************************************************************************/
+static int8_t GPIO_port_to_idx(GPIO_reg_t* pGPIOx)
+{
+	if(pGPIOx == GPIOA)
+		return 0;
+	else if (pGPIOx == GPIOB)
+		return 1;
+	else if (pGPIOx == GPIOC)
+		return 2;
+	else if (pGPIOx == GPIOD)
+		return 3;
+	else if (pGPIOx == GPIOE)
+		return 4;
+	else if (pGPIOx == GPIOF)
+		return 5;
+	else if (pGPIOx == GPIOG)
+		return 6;
+	else if (pGPIOx == GPIOH)
+		return 7;
+	else if (pGPIOx == GPIOI)
+		return 8;
+	else if (pGPIOx == GPIOJ)
+		return 9;
+	else if (pGPIOx == GPIOK)
+		return 10;
+	else return -1;
+}
+
+ /**************************************************************************
+ * @fn		GPIO_Config
+ *
+ * @brief	Initializes a given GPIO pin according to the config settings
+ *			in the handle.
+ *
+ * @param[in] pGPIOHandle		Pointer to a GPIO handle structure
+ * 								containing the GPIO port base address and
+ *								configuration parameters.
+ *
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
+ *
+ * @note	None.
+ ***************************************************************************/
+status_t GPIO_Config(GPIO_handle_t *pGPIOHandle)
+{
+	if(!pGPIOHandle) return STATUS_INVALID_PARAM;					// validate handle
 
 	uint32_t pinNumber 	= pGPIOHandle->GPIO_PinConfig.pinNumber;
-	if(pinNumber > GPIO_PIN_15) return STATUS_INVALID_PARAM;						// validate pin number
+	if(pinNumber > GPIO_PIN_15) return STATUS_INVALID_PARAM;		// validate pin number
+
+	GPIO_mode_t mode = pGPIOHandle->GPIO_PinConfig.mode;
 
 	// ======================== 1. Configure the mode of GPIO pin ========================
-	if(pGPIOHandle->GPIO_PinConfig.mode <= GPIO_MODE_ANALOG)		// non-interrupt modes
+	if(mode <= GPIO_MODE_ANALOG)	// non-interrupt modes
 	{
-		GPIO_write_field(&pGPIOHandle->pGPIOx->MODER, pinNumber, 2U, pGPIOHandle->GPIO_PinConfig.mode);
+		GPIO_write_field(&pGPIOHandle->pGPIOx->MODER, pinNumber, 2U, mode);
 	}
-	else	// interrupt modes
+	else							// interrupt modes
 	{
-			// TODO set interrupt modes
+		if(mode == GPIO_MODE_IT_FT)
+		{
+			// set corresponding bit in FTSR register
+			EXTI->FTSR |= (1U << pinNumber);
+
+			// clear corresponding bit in RTSR register
+			EXTI->RTSR &= ~(1U << pinNumber);
+		}
+		else if(mode == GPIO_MODE_IT_RT)
+		{
+			// set corresponding bit in RTSR register
+			EXTI->RTSR |= (1U << pinNumber);
+
+			// clear corresponding bit in FTSR register
+			EXTI->FTSR &= ~(1U << pinNumber);
+		}
+		else if (mode == GPIO_MODE_IT_RFT)
+		{
+			// set corresponding bits in RTSR  and FTSR registers
+			EXTI->RTSR |= (1U << pinNumber);
+			EXTI->FTSR |= (1U << pinNumber);
+		}
+
+		// configure GPIO port selection in SYSCFG_EXTICR
+		uint8_t EXTI_CR_idx 	= pinNumber / 4U;
+		uint8_t offset			= (pinNumber % 4U) * 4U;
+		uint32_t idx			= (uint32_t) (0xFU & (GPIO_port_to_idx(pGPIOHandle->pGPIOx)));
+
+		SYSCFG_PCLK_EN();	// enable SYSCFG peripheral clock
+
+		// clear previous EXTICR bits
+		SYSCFG->EXTICR[EXTI_CR_idx] &= ~(0xFU << offset);
+
+		// set corresponding EXTICR bits
+		SYSCFG->EXTICR[EXTI_CR_idx] |= (idx << offset);
+
+		// enable EXTI interrupt delivery using IMR
+		EXTI->IMR |= (1U << pinNumber);
 	}
 
 	// ======================== 2. Configure the speed of GPIO pin ========================
-	if(pGPIOHandle->GPIO_PinConfig.mode == GPIO_MODE_OUT ||
-			pGPIOHandle->GPIO_PinConfig.mode == GPIO_MODE_ALTFN)
+	if(mode == GPIO_MODE_OUT || mode == GPIO_MODE_ALTFN)
 	{
 		GPIO_write_field(&pGPIOHandle->pGPIOx->OSPEEDR, pinNumber, 2U, pGPIOHandle->GPIO_PinConfig.speed);
 	}
@@ -59,14 +196,13 @@ status_t GPIO_init(GPIO_handle_t *pGPIOHandle)
 	GPIO_write_field(&pGPIOHandle->pGPIOx->PUPDR, pinNumber, 2U, pGPIOHandle->GPIO_PinConfig.puPdCtl);
 
 	// 4. ======================== Configure the output type ========================
-	if(pGPIOHandle->GPIO_PinConfig.mode == GPIO_MODE_OUT ||
-		pGPIOHandle->GPIO_PinConfig.mode == GPIO_MODE_ALTFN)
+	if(mode == GPIO_MODE_OUT ||mode == GPIO_MODE_ALTFN)
 	{
 		GPIO_write_field(&pGPIOHandle->pGPIOx->OTYPER, pinNumber, 1U, pGPIOHandle->GPIO_PinConfig.outType);
 	}
 
 	// 4. ======================== Configure the alternate functionality ========================
-	if(pGPIOHandle->GPIO_PinConfig.mode == GPIO_MODE_ALTFN)
+	if(mode == GPIO_MODE_ALTFN)
 	{
 		uint8_t afrIdx		= (uint8_t) (pinNumber / 8U);
 		uint32_t offset 	= (uint32_t) (pinNumber % 8);
@@ -77,120 +213,71 @@ status_t GPIO_init(GPIO_handle_t *pGPIOHandle)
 	return STATUS_OK;
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_Reset
+ /**************************************************************************
+ * @fn		GPIO_Reset
  *
- * @brief             		- This function resets a given GPIO port to default settings
+ * @brief	This function resets a given GPIO port to default settings
  *
- * @param[in]       	- base address of the GPIO port peripheral
+ * @param[in] pGPIOx		Pointer to the base address of the GPIO peripheral.
  *
- * @return           		-  status indicating whether the command was successful or not
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @Note            		-  none
- **********************************************************************/
+ * @note	None.
+ ***************************************************************************/
 status_t GPIO_Reset(GPIO_reg_t *pGPIOx)
-{
-	if(pGPIOx == GPIOA)
-		GPIOA_RESET();
-	else if(pGPIOx == GPIOB)
-		GPIOB_RESET();
-	else if(pGPIOx == GPIOC)
-		GPIOC_RESET();
-	else if(pGPIOx == GPIOD)
-		GPIOD_RESET();
-	else if(pGPIOx == GPIOE)
-		GPIOE_RESET();
-	else if(pGPIOx == GPIOF)
-		GPIOF_RESET();
-	else if(pGPIOx == GPIOG)
-		GPIOG_RESET();
-	else if(pGPIOx == GPIOH)
-		GPIOH_RESET();
-	else if(pGPIOx == GPIOI)
-		GPIOI_RESET();
-	else
-		return STATUS_INVALID_PARAM;
-
-	return STATUS_OK;
-}
-
-/*********************************************************************
- * @fn      		 			- GPIO_PeriClkCtl
- *
- * @brief             		- This function enables or disables peripheral clock for the given GPIO port
- *
- * @param[in]       	- base address of the GPIO port peripheral
- * @param[in]        	- ENABLE or DISABLE macro
- *
- * @return           		-  status indicating whether the command was successful or not
- *
- * @Note            		-  none
- **********************************************************************/
-status_t GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable)
 {
 	if (! pGPIOx) return STATUS_INVALID_PARAM;
 
-	if(enable){
-		if(pGPIOx == GPIOA)
-			GPIOA_PCLK_EN();
-		else if(pGPIOx == GPIOB)
-			GPIOB_PCLK_EN();
-		else if(pGPIOx == GPIOC)
-			GPIOC_PCLK_EN();
-		else if(pGPIOx == GPIOD)
-			GPIOD_PCLK_EN();
-		else if(pGPIOx == GPIOE)
-			GPIOE_PCLK_EN();
-		else if(pGPIOx == GPIOF)
-			GPIOF_PCLK_EN();
-		else if(pGPIOx == GPIOG)
-			GPIOG_PCLK_EN();
-		else if(pGPIOx == GPIOH)
-			GPIOH_PCLK_EN();
-		else if(pGPIOx == GPIOI)
-			GPIOI_PCLK_EN();
-		else
-			return STATUS_INVALID_PARAM;
-	}
-	else
-	{
-		if(pGPIOx == GPIOA)
-			GPIOA_PCLK_DI();
-		else if(pGPIOx == GPIOB)
-			GPIOB_PCLK_DI();
-		else if(pGPIOx == GPIOC)
-			GPIOC_PCLK_DI();
-		else if(pGPIOx == GPIOD)
-			GPIOD_PCLK_DI();
-		else if(pGPIOx == GPIOE)
-			GPIOE_PCLK_DI();
-		else if(pGPIOx == GPIOF)
-			GPIOF_PCLK_DI();
-		else if(pGPIOx == GPIOG)
-			GPIOG_PCLK_DI();
-		else if(pGPIOx == GPIOH)
-			GPIOH_PCLK_DI();
-		else if(pGPIOx == GPIOI)
-			GPIOI_PCLK_DI();
-		else
-			return STATUS_INVALID_PARAM;
-	}
+	int8_t idx = GPIO_port_to_idx(pGPIOx);
+	if(idx < 0) return STATUS_INVALID_PARAM;
+
+	GPIOx_RESET(idx);
 
 	return STATUS_OK;
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_ReadPin
+ /**************************************************************************
+ * @fn		GPIO_PeriClkCtl
  *
- * @brief             		- This function reads the input register for a given GPIO pin
+ * @brief	Enables or disables the peripheral clock for a given GPIO port.
  *
- * @param[in]       	- base address of the GPIO port peripheral
- * @param[in]        	- pin number to read value from
+ * @param[in] pGPIOx		Pointer to the base address of the GPIO peripheral.
+ * @param[in] enable		ENABLE or DISABLE macro.
  *
- * @return           		-  returns the read value from the input register (0 or 1)
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @Note            		-  none
- **********************************************************************/
+ * @note	None.
+ ***************************************************************************/
+status_t GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable)
+{
+	if (!pGPIOx) return STATUS_INVALID_PARAM;
+
+	int8_t idx = GPIO_port_to_idx(pGPIOx);
+	if(idx < 0) return STATUS_INVALID_PARAM;
+
+	if(enable)
+		GPIOx_PCLK_EN( idx );
+	else
+		GPIOx_PCLK_DI( idx );
+
+	return STATUS_OK;
+}
+
+ /**************************************************************************
+ * @fn		GPIO_ReadPin
+ *
+ * @brief	Reads the input register for a given GPIO pin.
+ *
+ * @param[in] pGPIOx		Pointer to the base address of the GPIO peripheral.
+ * @param[in] pinNumber		Pin number to read input data from.
+ *
+ * @return	The data (1 or 0) in the input data register of the corresponding
+			GPIO port & pin.
+ *
+ * @note	None.
+ ***************************************************************************/
 uint8_t GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 {
 	if(pinNumber > GPIO_PIN_15 || ! pGPIOx) return 0;
@@ -198,17 +285,17 @@ uint8_t GPIO_ReadPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 	return (uint8_t) ( (pGPIOx->IDR >> pinNumber) & 1U );
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_ReadPort
+ /**************************************************************************
+ * @fn		GPIO_ReadPort
  *
- * @brief             		- This function reads the entire input register for a given GPIO port
+ * @brief	Reads the entire input register for a given GPIO port.
  *
- * @param[in]       	- base address of the GPIO port peripheral
+ * @param[in] pGPIOx		Pointer to the base address of the GPIO peripheral.
  *
- * @return           		-  the contents of the entire input register for the requested GPIO port
+ * @return	The entire input data register of the corresponding GPIO port.
  *
- * @Note            		-  none
- **********************************************************************/
+ * @note	None.
+ ***************************************************************************/
 uint16_t GPIO_ReadPort(GPIO_reg_t *pGPIOx)
 {
 	if(! pGPIOx) return 0;
@@ -216,42 +303,45 @@ uint16_t GPIO_ReadPort(GPIO_reg_t *pGPIOx)
 	return (uint16_t) pGPIOx->IDR;
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_WritePin
+ /**************************************************************************
+ * @fn		GPIO_WritePin
  *
- * @brief             		- This function writes to the output register of the requested GPIO pin
+ * @brief	Writes the output register for a given GPIO pin.
  *
- * @param[in]       	- base address of the GPIO port peripheral
- * @param[in]        	- the number of the pin to write to
- * @param[in]			- the value to be written using the SET / RESET macro
+ * @param[in] pGPIOx		Pointer to the base address of the GPIO peripheral.
+ * @param[in] pinNumber		Pin number to write output data to.
+ * @param[in] val			The value to be written (SET or RESET).
  *
- * @return           		-  status indicating whether the command was successful or not
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @Note            		-  none
- **********************************************************************/
+ * @note	None.
+ ***************************************************************************/
 status_t GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val)
 {
 	if(pinNumber > GPIO_PIN_15 || ! pGPIOx) return STATUS_INVALID_PARAM;
 
 	// uses BSRR register for atomic bit set/reset
 	pGPIOx->BSRR = (val == SET)
-	                    ? (1U << pinNumber)					// SET bit
+	                    ? (1U << pinNumber)				// SET bit
 	                    : (1U << (pinNumber + 16U));	// RESET bit
 
 	return STATUS_OK;
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_WritePort
+ /**************************************************************************
+ * @fn		GPIO_WritePort
  *
- * @brief             		- This function writes the entire output register of a given GPIO port
+ * @brief	Writes the entire output register for a given GPIO port.
  *
- * @param[in]       	- base address of the GPIO port peripheral
+ * @param[in] pGPIOx		Pointer to the base address of the GPIO peripheral.
+ * @param[in] val			The value to be written (entire register).
  *
- * @return           		-  status indicating whether the command was successful or not
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @Note            		-  none
- **********************************************************************/
+ * @note	None.
+ ***************************************************************************/
 status_t GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val)
 {
 	if(! pGPIOx) return STATUS_INVALID_PARAM;
@@ -261,59 +351,117 @@ status_t GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val)
 	return STATUS_OK;
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_ToggleOutputPin
+ /**************************************************************************
+ * @fn		GPIO_ToggleOutputPin
  *
- * @brief             		- This function toggles the output value of a given GPIO pin
+ * @brief	Toggles the output value of a given GPIO pin.
  *
- * @param[in]       	- base address of the GPIO port peripheral
- * @param[in]        	- the pin number of the pin to toggle
+ * @param[in] pGPIOx		Pointer to the base address of the GPIO peripheral.
+ * @param[in] pinNumber		The pin to toggle.
  *
- * @return           		-  status indicating whether the command was successful or not
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @Note            		-  none
- **********************************************************************/
+ * @note	None.
+ ***************************************************************************/
 status_t GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 {
 	if(pinNumber > GPIO_PIN_15 || ! pGPIOx) return STATUS_INVALID_PARAM;
 
 	pGPIOx->BSRR = ( pGPIOx->ODR & (1U << pinNumber) )
 		                    ? (1U << (pinNumber + 16U))		// if HIGH then RESET
-		                    :  (1U << pinNumber);						// if LOW then SET
+		                    : (1U << pinNumber);			// if LOW then SET
 
 	return STATUS_OK;
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_IRQConfig
+ /**************************************************************************
+ * @fn		GPIO_IRQEnable
  *
- * @brief             		- TODO
+ * @brief	Enables a given IRQNumber in the NVIC of the processor (ARM Cortex M4).
  *
- * @param[in]       	- TODO
- * @param[in]        	- TODO
- * @param[in]        	- TODO
+ * @param[in] IRQNumber		The IRQ number to enable in the NVIC.
  *
- * @return           		-  status indicating whether the command was successful or not
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @Note            		-  none
- **********************************************************************/
-status_t GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t enable)
+ * @note	None.
+ ***************************************************************************/
+status_t GPIO_IRQEnable(uint8_t IRQNumber)
 {
-
+	NVIC_ISER[IRQNumber / 32U] = (1U << (IRQNumber % 32U));		// uses write instead of read-modify-write
+	return STATUS_OK;
 }
 
-/*********************************************************************
- * @fn      		 			- GPIO_IRQHandling
+ /**************************************************************************
+ * @fn		GPIO_IRQDisable
  *
- * @brief             		- TODO
+ * @brief	Disables a given IRQNumber in the NVIC of the processor (ARM Cortex M4).
  *
- * @param[in]       	- TODO
+ * @param[in] IRQNumber		The IRQ number to disable in the NVIC.
  *
- * @return           		-  status indicating whether the command was successful or not
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @Note            		-  none
- **********************************************************************/
+ * @note	None.
+ ***************************************************************************/
+status_t GPIO_IRQDisable(uint8_t IRQNumber)
+{
+	NVIC_ICER[IRQNumber / 32U] = (1U << (IRQNumber % 32U));		// uses write instead of read-modify-write
+	return STATUS_OK;
+}
+
+ /**************************************************************************
+ * @fn		GPIO_IRQPriority
+ *
+ * @brief	Sets the priority of an IRQNumber in the NVIC.
+ *
+ * @param[in] IRQNumber		The target IRQ number.
+ * @param[in] IRQPriority	The priority value to set the IRQ number to.
+ *
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
+ *
+ * @note	None.
+ ***************************************************************************/
+status_t GPIO_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority)
+{
+	uint32_t reg_idx 	= IRQNumber / 4;
+	uint32_t offset 	= ((IRQNumber % 4) * 8U);
+
+	// Mask priority to implemented priority bits
+	// (e.g., 0x0FU if NO_PR_BITS_IMPLEMENTED == 4)
+	IRQPriority &= ((1U << NO_PR_BITS_IMPLEMENTED) - 1U);
+
+	// clear current priority bits
+	NVIC_IPR[reg_idx] &= ~(0xFFU << offset);
+	// set new priority bits
+	NVIC_IPR[reg_idx] |= (IRQPriority << (offset + (8U - NO_PR_BITS_IMPLEMENTED)));	// bits must be shifted to upper nibble
+
+	return STATUS_OK;
+}
+
+ /**************************************************************************
+ * @fn		GPIO_IRQHandling
+ *
+ * @brief	Clears the pending interrupt bit in the EXTI peripheral
+			for the specified GPIO pin.
+ *
+ * @param[in] pinNumber		The target pin number / EXTI line (0-15).
+ *
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_INVALID_PARAM).
+ *
+ * @note	None.
+ ***************************************************************************/
 status_t GPIO_IRQHandling(uint8_t pinNumber)
 {
+	if (pinNumber > GPIO_PIN_15) return STATUS_INVALID_PARAM;
 
+	// clear the corresponding EXTI PR register
+	EXTI->PR = (1U << pinNumber);	// bit is cleared by writing 1
+
+	return STATUS_OK;
 }
+
+
