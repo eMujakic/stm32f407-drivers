@@ -47,8 +47,30 @@ typedef enum
 	IRQ_NUM_EXTI3 = 9,
 	IRQ_NUM_EXTI4 = 10,
 	IRQ_NUM_EXTI5_9 = 23,
-	IRQ_NUM_EXTI10_15 = 40
+	IRQ_NUM_EXTI10_15 = 40,
+	IRQ_NUM_INVALID = 0xFF
 } IRQ_num_t;
+
+// IRQ priorities of STM32F407 MCU
+typedef enum
+{
+	IRQ_PRI0 = 0,
+	IRQ_PRI1,
+	IRQ_PRI2,
+	IRQ_PRI3,
+	IRQ_PRI4,
+	IRQ_PRI5,
+	IRQ_PRI6,
+	IRQ_PRI7,
+	IRQ_PRI8,
+	IRQ_PRI9,
+	IRQ_PRI10,
+	IRQ_PRI11,
+	IRQ_PRI12,
+	IRQ_PRI13,
+	IRQ_PRI14,
+	IRQ_PRI15
+} IRQ_priority_t;
 
 /***********************************************************************
  * 							Base addresses of

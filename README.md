@@ -26,7 +26,8 @@ stm32f4xx_drivers/
 ├── Src/
 │   ├── 001LED_toggle_PP.c              # LED blink demo using push/pull GPIO output
 │   ├── 002LED_toggle_OD.c              # LED blink demo using open-drain GPIO output
-│   ├── 003LED_button.c                 # LED power demo powering an LED using on-board button via GPIO.
+│   ├── 003LED_button.c                 # LED toggle demo using on-board button via GPIO.
+│   ├── 004button_interrupt.c           # Interrupt delivery demo using button & LED.
 │   ├── syscalls.c                      # Stm32CubeIDE auto-generated stub system calls.
 │   └── sysmem.c                        # Stm32CubeIDE auto-generated heap management lib.
 ├── Startup/
@@ -45,8 +46,8 @@ stm32f4xx_drivers/
 ## Driver Architecture
 The drivers are structured as:
 - Device Header File (`stm32f407xx.h`): Contains important MCU address macros and register definitions.
-- Peripheral Driver Interface(_`drivers/*.h` files_): Public API made available to user applications.
-- Peripheral Driver Implementation(_`drivers/*.c` files_): Register-level logic which implements the API functions.
+- Peripheral Driver Interface (_`drivers/*.h` files_): Public API made available to user applications.
+- Peripheral Driver Implementation (_`drivers/*.c` files_): Register-level logic which implements the API functions.
 
 ## Toolchain
 - STM32CubeIDE

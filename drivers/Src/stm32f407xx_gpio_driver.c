@@ -48,7 +48,7 @@ static inline void GPIO_write_field(volatile uint32_t *reg, GPIO_pin_number_t pi
  * Sets the configuration to:
  *		- Pin 0
  *		- Input mode
- *		- Medium speed
+ *		- Low speed
  *		- No pull-up/pull-down
  *		- Push-pull output type
  *		- Alternate function 0
@@ -65,7 +65,7 @@ status_t GPIO_init(GPIO_pin_config_t *pConfig)
 
     pConfig->pinNumber  = GPIO_PIN_0;
     pConfig->mode       = GPIO_MODE_IN;
-    pConfig->speed      = GPIO_SPEED_MED;
+    pConfig->speed      = GPIO_SPEED_LOW;
     pConfig->puPdCtl    = GPIO_NO_PUPD;
     pConfig->outType    = GPIO_OTYPE_PP;
     pConfig->altFuncMode = GPIO_AF0;
@@ -373,6 +373,28 @@ status_t GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber)
 		                    : (1U << pinNumber);			// if LOW then SET
 
 	return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		GPIO_PinToIRQNumber
+ *
+ * @brief	Returns the IRQ number for a given GPIO pin.
+ *
+ * @param[in] pin		The GPIO pin number.
+ *
+ * @return	The IRQ number corresponding to the given GPIO pin.
+ *
+ * @note	None.
+ ***************************************************************************/
+IRQ_num_t 	GPIO_PinToIRQNumber(GPIO_pin_number_t pin)
+{
+	if(pin >= GPIO_PIN_0 && pin <= GPIO_PIN_4 ) return (IRQ_num_t)(IRQ_NUM_EXTI0 + pin);
+
+	if(pin >= GPIO_PIN_5 && pin <= GPIO_PIN_9 ) return IRQ_NUM_EXTI5_9;
+
+	if(pin >= GPIO_PIN_10 && pin <= GPIO_PIN_15 ) return IRQ_NUM_EXTI10_15;
+
+	return IRQ_NUM_INVALID;
 }
 
  /**************************************************************************

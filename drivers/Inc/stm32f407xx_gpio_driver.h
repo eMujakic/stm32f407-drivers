@@ -125,6 +125,7 @@ status_t 	GPIO_WritePin(GPIO_reg_t *pGPIOx, uint8_t pinNumber, uint8_t val);		//
 status_t 	GPIO_WritePort(GPIO_reg_t *pGPIOx, uint16_t val);						// Writes entire output data register of GPIO port
 status_t 	GPIO_ToggleOutputPin(GPIO_reg_t *pGPIOx, uint8_t pinNumber);			// Toggles output data register bit for GPIO pin
 
+IRQ_num_t 	GPIO_PinToIRQNumber(GPIO_pin_number_t pin);								// Returns IRQ number for given GPIO pin
 status_t 	GPIO_IRQEnable(uint8_t IRQNumber);										// Enables IRQ number in the NVIC
 status_t 	GPIO_IRQDisable(uint8_t IRQNumber);										// Disables IRQ number in the NVIC
 status_t 	GPIO_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);				// Sets IRQ priority for IRQ number
