@@ -27,7 +27,7 @@ stm32f4xx_drivers/
 │   ├── 001LED_toggle_PP.c              # LED blink demo using push/pull GPIO output
 │   ├── 002LED_toggle_OD.c              # LED blink demo using open-drain GPIO output
 │   ├── 003LED_button.c                 # LED toggle demo using on-board button via GPIO.
-│   ├── 004button_interrupt.c           # Interrupt delivery demo using button & LED.
+│   ├── 004button_interrupt.c           # GPIO interrupt delivery demo using button & LED.
 │   ├── syscalls.c                      # Stm32CubeIDE auto-generated stub system calls.
 │   └── sysmem.c                        # Stm32CubeIDE auto-generated heap management lib.
 ├── Startup/
@@ -38,8 +38,10 @@ stm32f4xx_drivers/
 │   ├── Inc/
 │   │   ├── stm32f407xx.h               # Device-specific header
 │   │   └── stm32f407xx_gpio_driver.h   # GPIO-driver header file
+│   │   └── stm32f407xx_spi_driver.h    # SPI-driver header file
 │   ├── Src/
 │       └── stm32f407xx_gpio_driver.c   # GPIO-driver C file
+│       └── stm32f407xx_spi_driver.c    # SPI-driver C file
 └── README.md                           # you are here.
 ```
 

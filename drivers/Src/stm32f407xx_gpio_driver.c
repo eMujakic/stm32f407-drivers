@@ -40,7 +40,7 @@ static inline void GPIO_write_field(volatile uint32_t *reg, GPIO_pin_number_t pi
 
 
  /**************************************************************************
- * @fn		GPIO_init
+ * @fn		GPIO_ConfigInit
  *
  * @brief	Initializes a GPIO_pin_config_t struct with safe default values.
  *
@@ -59,7 +59,7 @@ static inline void GPIO_write_field(volatile uint32_t *reg, GPIO_pin_number_t pi
  *
  * @note	None.
  ***************************************************************************/
-status_t GPIO_init(GPIO_pin_config_t *pConfig)
+status_t GPIO_ConfigInit(GPIO_pin_config_t *pConfig)
 {
 	if(!pConfig) return STATUS_INVALID_PARAM;
 
@@ -116,7 +116,7 @@ static int8_t GPIO_port_to_idx(GPIO_reg_t* pGPIOx)
 }
 
  /**************************************************************************
- * @fn		GPIO_Config
+ * @fn		GPIO_Init
  *
  * @brief	Initializes a given GPIO pin according to the config settings
  *			in the handle.
@@ -130,7 +130,7 @@ static int8_t GPIO_port_to_idx(GPIO_reg_t* pGPIOx)
  *
  * @note	None.
  ***************************************************************************/
-status_t GPIO_Config(GPIO_handle_t *pGPIOHandle)
+status_t GPIO_Init(GPIO_handle_t *pGPIOHandle)
 {
 	if(!pGPIOHandle) return STATUS_INVALID_PARAM;					// validate handle
 

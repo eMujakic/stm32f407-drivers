@@ -250,6 +250,13 @@ typedef struct
 #define GPIOJ					( (GPIO_reg_t*)		GPIOJ_BASE_ADDR )
 #define GPIOK					( (GPIO_reg_t*)		GPIOK_BASE_ADDR )
 
+#define SPI1					( (SPI_reg_t*) 		SPI1_BASE_ADDR)
+#define SPI2					( (SPI_reg_t*) 		SPI2_BASE_ADDR)
+#define SPI3					( (SPI_reg_t*) 		SPI3_BASE_ADDR)
+#define SPI4					( (SPI_reg_t*) 		SPI4_BASE_ADDR)
+// #define SPI5					( (SPI_reg_t*) 		SPI5_BASE_ADDR)
+// #define SPI6					( (SPI_reg_t*) 		SPI6_BASE_ADDR)
+
 #define RCC						( (RCC_reg_t*)		RCC_BASE_ADDR )
 
 #define EXTI					( (EXTI_reg_t*)		EXTI_BASE_ADDR )
@@ -282,10 +289,18 @@ typedef struct
 #define SPI1_PCLK_EN()					( RCC->APB2ENR |= ( 1 << 12 ) )
 #define SPI2_PCLK_EN()					( RCC->APB1ENR |= ( 1 << 14 ) )
 #define SPI3_PCLK_EN()					( RCC->APB1ENR |= ( 1 << 15 ) )
+#define SPI4_PCLK_EN()					( RCC->APB2ENR |= ( 1 << 13 ) )
 
 #define SPI1_PCLK_DI()					( RCC->APB2ENR &= ~( 1 << 12 ) )
 #define SPI2_PCLK_DI()					( RCC->APB1ENR &= ~( 1 << 14 ) )
 #define SPI3_PCLK_DI()					( RCC->APB1ENR &= ~( 1 << 15 ) )
+#define SPI4_PCLK_DI()					( RCC->APB2ENR &= ~( 1 << 13 ) )
+
+#define SPI1_RESET()		do{ (  RCC->APB2RSTR |= ( 1U << ( 12 ) ) ); (  RCC->APB2RSTR &= ~( 1U << ( 12 ))  );  } while(0)
+#define SPI2_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 14 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 14 ))  );  } while(0)
+#define SPI3_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 15 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 15 ))  );  } while(0)
+#define SPI4_RESET()		do{ (  RCC->APB2RSTR |= ( 1U << ( 13 ) ) ); (  RCC->APB2RSTR &= ~( 1U << ( 13 ))  );  } while(0)
+
 
 // ======================= 	SYSCFG clock enable/disable macros =======================
 #define SYSCFG_PCLK_EN()				( RCC->APB2ENR |= ( 1 << 14 ) )
@@ -307,7 +322,51 @@ typedef struct
 #define USART6_PCLK_DI()			( RCC->APB2ENR &= ~( 1 << 5 ) )
 
 
+/***********************************************************************
+ *
+ * 						Bit-Position Definition Macros
+ * 							
+ ***********************************************************************/
+
+
+// ======================= 	SPI Bit-Position Macros =======================
+#define SPI_CR1_CPHA_BIT		0U
+#define SPI_CR1_CPOL_BIT		1U	
+#define SPI_CR1_MSTR_BIT		2U	
+#define SPI_CR1_BR_BIT			3U
+#define SPI_CR1_SPE_BIT			6U
+#define SPI_CR1_LSBFIRST_BIT	7U
+#define SPI_CR1_SSI_BIT			8U
+#define SPI_CR1_SSM_BIT			9U
+#define SPI_CR1_RXONLY_BIT		10U
+#define SPI_CR1_DFF_BIT			11U
+#define SPI_CR1_CRCNEXT_BIT		12U
+#define SPI_CR1_CRCEN_BIT		13U
+#define SPI_CR1_BIDIOE_BIT		14U
+#define SPI_CR1_BIDIMODE_BIT	15U
+
+#define SPI_CR2_RXDMAEN_BIT		0U
+#define SPI_CR2_TXDMAEN_BIT		1U
+#define SPI_CR2_SSOE_BIT		2U
+#define SPI_CR2_FRF_BIT			4U
+#define SPI_CR2_ERRIE_BIT		5U
+#define SPI_CR2_RXNEIE_BIT		6U
+#define SPI_CR2_TXEIE_BIT		7U
+
+#define SPI_SR_RXNE_BIT			0U
+#define SPI_SR_TXE_BIT			1U
+#define SPI_SR_CHSIDE_BIT		2U
+#define SPI_SR_UDR_BIT			3U
+#define SPI_SR_CRCERR_BIT		4U
+#define SPI_SR_MODF_BIT			5U
+#define SPI_SR_OVR_BIT			6U
+#define SPI_SR_BSY_BIT			7U
+#define SPI_SR_FRE_BIT			8U
+
+
+
 #include "stm32f407xx_gpio_driver.h"
+#include "stm32f407xx_spi_driver.h"
 #endif /* INC_STM32F407XX_H_ */
 
 

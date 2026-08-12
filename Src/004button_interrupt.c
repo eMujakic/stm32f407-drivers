@@ -28,18 +28,18 @@ int main(void)
 {
 	// GPIO LED configuration and initialization
 	GPIO_handle_t gpio_led;
-	GPIO_init(&gpio_led.GPIO_PinConfig);
+	GPIO_ConfigInit(&gpio_led.GPIO_PinConfig);
 	gpio_led.pGPIOx = LED_PORT;
 	gpio_led.GPIO_PinConfig.pinNumber = LED_PIN;
 	gpio_led.GPIO_PinConfig.mode = GPIO_MODE_OUT;
 
 	GPIO_PeriClkCtl(LED_PORT, ENABLE);
-	GPIO_Config(&gpio_led);
+	GPIO_Init(&gpio_led);
 
 	// GPIO button configuration and initialization
 	GPIO_handle_t gpio_button;
 	IRQ_num_t IRQ_num =  GPIO_PinToIRQNumber(BUTTON_PIN);
-	GPIO_init(&gpio_button.GPIO_PinConfig);
+	GPIO_ConfigInit(&gpio_button.GPIO_PinConfig);
 	gpio_button.pGPIOx = BUTTON_PORT;
 	gpio_button.GPIO_PinConfig.pinNumber = BUTTON_PIN;
 	gpio_button.GPIO_PinConfig.mode = GPIO_MODE_IT_RT;		// rising-trigger interrupt mode
@@ -49,7 +49,7 @@ int main(void)
 	GPIO_IRQPriority(IRQ_num, IRQ_PRI15);
 
 	GPIO_PeriClkCtl(BUTTON_PORT, ENABLE);
-	GPIO_Config(&gpio_button);
+	GPIO_Init(&gpio_button);
 
 	while(1);
 
