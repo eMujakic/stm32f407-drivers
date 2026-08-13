@@ -12,10 +12,10 @@
 
 #include "stm32f407xx.h"
 
-#define LED_PORT 			GPIOD
-#define LED_PIN				GPIO_PIN_13
+#define LED_PORT 		GPIOD
+#define LED_PIN			GPIO_PIN_13
 
-#define BUTTON_PORT	GPIOA
+#define BUTTON_PORT		GPIOA
 #define BUTTON_PIN		GPIO_PIN_0
 
 static void delay(uint32_t val)

@@ -112,8 +112,8 @@ typedef struct
  * 					Check function definitions for more information
  *********************************************************************************/
 
-status_t 	GPIO_ConfigInit(GPIO_pin_config_t *pConfig);									// Sets GPIO_pin_config_t struct to safe default values
-status_t	GPIO_Init(GPIO_handle_t *pGPIOHandle);								// Configures a GPIO pin according to GPIO_pin_config_t struct
+status_t 	GPIO_ConfigInit(GPIO_pin_config_t *pConfig);							// Sets GPIO_pin_config_t struct to safe default values
+status_t	GPIO_Init(GPIO_handle_t *pGPIOHandle);									// Configures a GPIO pin according to GPIO_pin_config_t struct
 status_t 	GPIO_Reset(GPIO_reg_t *pGPIOx);											// Resets a GPIO port to default register values
 
 status_t	GPIO_PeriClkCtl(GPIO_reg_t *pGPIOx, uint8_t enable);					// Can enable/disable the clock for a given GPIO base addr

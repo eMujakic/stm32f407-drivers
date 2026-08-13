@@ -20,12 +20,15 @@ typedef enum
 // ====================== SPI bus config enum ======================
 typedef enum
 {
-    SPI_BUS_FULL_DUPLEX = 0U,
-    SPI_BUS_HALF_DUPLEX = 1U,
-    SPI_BUS_SIMPLEX_RX  = 2U            // simplex, RX-only
+    SPI_BUS_FULL_DUPLEX     = 0U,
+    SPI_BUS_HALF_DUPLEX_RX  = 1U,        // half-duplex with output disabled
+    SPI_BUS_HALF_DUPLEX_TX  = 2U,        // half-duplex with input disabled
+    SPI_BUS_SIMPLEX_RX      = 2U         // simplex, RX-only
 } SPI_bus_config_t;
 
 // ====================== SPI sclk prescaler enum ==================
+// Note that the default HSI (high-speed internal) clock speed is
+// 16Mhz, which puts the max baud-rate at 16/2 = 8MHz when using HSI
 typedef enum
 {
     SPI_BAUD_DIV2    = 0U,
@@ -66,7 +69,13 @@ typedef enum
     SPI_SSM_EN = 1U                     // software slave management enabled
 } SPI_ssm_t;
 
-// ====================== Configuration structure for SPI ==========
+typedef enum
+{
+    SPI_MSB_FIRST = 0U,                 // transfer the most-significant bit first
+    SPI_LSB_FIRST = 1U                  // transfer the least-significant bit first
+} SPI_bit_order_t;
+
+// ====================== Configuration structure for SPI ==================
 typedef struct
 {
     SPI_device_mode_t       SPI_DeviceMode;     // Master/Slave
@@ -76,14 +85,14 @@ typedef struct
     SPI_cpol_t              SPI_CPOL;           // Clock-Polarity
     SPI_cpha_t              SPI_CPHA;           // Clock-Phase
     SPI_ssm_t               SPI_SSM;            // Slave-Select Management
-
+    SPI_bit_order_t         SPI_BitOrder;       // Transmit LSB or MSB first?
 } SPI_config_t;
 
 // ====================== Handle structure for SPI ======================
 typedef struct
 {
-    SPI_reg_t *pSPIx;
-    SPI_config_t SPI_Config;
+    SPI_reg_t       *pSPIx;
+    SPI_config_t    SPI_Config;
 } SPI_handle_t;
 
 /*********************************************************************************
@@ -91,18 +100,20 @@ typedef struct
  * 					Check function definitions for more information
  *********************************************************************************/
 
-status_t 	SPI_ConfigInit(SPI_config_t *pConfig);								    // Sets SPI_config_t struct to safe default values
-status_t	SPI_Init(SPI_handle_t *pSPIHandle);								        // Configures a SPI pin according to SPI_config_t struct
-status_t 	SPI_Reset(SPI_reg_t *pSPIx);										    // Resets a SPI peripheral to default register values
+status_t SPI_ConfigInit(SPI_config_t *pConfig);						        // Sets SPI_config_t struct to safe default values
+status_t SPI_Init(SPI_handle_t *pSPIHandle);								// Configures a SPI pin according to SPI_config_t struct
+status_t SPI_Reset(SPI_reg_t *pSPIx);										// Resets a SPI peripheral to default register values
 
-status_t	SPI_PeriClkCtl(SPI_reg_t *pSPIx, uint8_t enable);					    // Can enable/disable the clock for a given SPI base addr
+status_t SPI_PeripheralControl(SPI_reg_t *pSPIx, uint8_t enable);           // Asserts/De-asserts SPE bit in SPI CR1 register
 
-status_t    SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len);           // Send data via SPI
-status_t    SPI_Receive(SPI_reg_t *pSPIx, uint8_t *pRXBuffer, uint32_t len);        // Receive data via SPI
+status_t SPI_PeriClkCtl(SPI_reg_t *pSPIx, uint8_t enable);					// Can enable/disable the clock for a given SPI base addr
 
-status_t 	SPI_IRQEnable(uint8_t IRQNumber);										// Enables IRQ number in the NVIC
-status_t 	SPI_IRQDisable(uint8_t IRQNumber);										// Disables IRQ number in the NVIC
-status_t 	SPI_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);				// Sets IRQ priority for IRQ number
-status_t 	SPI_IRQHandling(SPI_handle_t *pHandle);									// Clears EXTI pending bit
+status_t SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len);      // Send data via SPI
+status_t SPI_Receive(SPI_reg_t *pSPIx, uint8_t *pRXBuffer, uint32_t len);   // Receive data via SPI
+
+status_t SPI_IRQEnable(uint8_t IRQNumber);							        // Enables IRQ number in the NVIC
+status_t SPI_IRQDisable(uint8_t IRQNumber);							        // Disables IRQ number in the NVIC
+status_t SPI_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);	        // Sets IRQ priority for IRQ number
+status_t SPI_IRQHandling(SPI_handle_t *pHandle);						    // Clears EXTI pending bit
 
 #endif /* INC_STM32F407XX_SPI_DRIVER_H_ */

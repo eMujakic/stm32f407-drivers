@@ -137,9 +137,11 @@ status_t GPIO_Init(GPIO_handle_t *pGPIOHandle)
 	uint32_t pinNumber 	= pGPIOHandle->GPIO_PinConfig.pinNumber;
 	if(pinNumber > GPIO_PIN_15) return STATUS_INVALID_PARAM;		// validate pin number
 
-	GPIO_mode_t mode = pGPIOHandle->GPIO_PinConfig.mode;
+	GPIO_PeriClkCtl(pGPIOHandle->pGPIOx, ENABLE);	// enable clock
 
 	// ======================== 1. Configure the mode of GPIO pin ========================
+	GPIO_mode_t mode = pGPIOHandle->GPIO_PinConfig.mode;
+
 	if(mode <= GPIO_MODE_ANALOG)	// non-interrupt modes
 	{
 		GPIO_write_field(&pGPIOHandle->pGPIOx->MODER, pinNumber, 2U, mode);
