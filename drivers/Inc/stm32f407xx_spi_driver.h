@@ -104,7 +104,10 @@ status_t SPI_ConfigInit(SPI_config_t *pConfig);						        // Sets SPI_config_
 status_t SPI_Init(SPI_handle_t *pSPIHandle);								// Configures a SPI pin according to SPI_config_t struct
 status_t SPI_Reset(SPI_reg_t *pSPIx);										// Resets a SPI peripheral to default register values
 
-status_t SPI_PeripheralControl(SPI_reg_t *pSPIx, uint8_t enable);           // Asserts/De-asserts SPE bit in SPI CR1 register
+uint8_t  SPI_GetFlag(SPI_reg_t *pSPIx, uint32_t flagBit);                   // Returns value of SR at flagBit
+
+status_t SPI_PeripheralControl(SPI_reg_t *pSPIx, uint8_t enable);           // Sets/clears SPE bit in SPI CR1 register
+status_t SPI_SSOEConfig(SPI_reg_t *pSPIx, uint8_t enable);                  // Sets/clears SSOE bit in SPI CR2 register
 
 status_t SPI_PeriClkCtl(SPI_reg_t *pSPIx, uint8_t enable);					// Can enable/disable the clock for a given SPI base addr
 

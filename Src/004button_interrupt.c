@@ -58,7 +58,7 @@ int main(void)
 
 void EXTI0_IRQHandler(void)
 {
-	delay(100*1500);						// for debouncing
+	delay(10000*15);						// for debouncing
 	GPIO_IRQHandling(BUTTON_PIN);			// clears pending interrupt from EXTI line
 	GPIO_ToggleOutputPin(LED_PORT, LED_PIN);
 }

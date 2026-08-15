@@ -37,7 +37,7 @@ static inline uint8_t SPI_IsValidInstance(SPI_reg_t *pSPIx)
  *
  * @return	The value of pSPIx's SR at flagBit. 
  ***************************************************************************/
-static inline uint8_t SPI_GetFlag(SPI_reg_t *pSPIx, uint32_t flagBit)
+uint8_t SPI_GetFlag(SPI_reg_t *pSPIx, uint32_t flagBit)
 {
     if (!SPI_IsValidInstance(pSPIx))    return 0U;
     if (flagBit > SPI_SR_FRE_BIT)       return 0U;
@@ -334,11 +334,44 @@ status_t    SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len)
         return STATUS_INVALID_PARAM;
 
     if (enable == ENABLE)
+    {
         pSPIx->CR1 |= (1U << SPI_CR1_SPE_BIT);
+    }
     else if (enable == DISABLE)
+    {
+        // while( SPI_GetFlag(pSPIx, SPI_SR_BSY_BIT) );    // wait until not busy
         pSPIx->CR1 &= ~(1U << SPI_CR1_SPE_BIT);
+    }
     else
         return STATUS_INVALID_PARAM;
 
     return STATUS_OK;
- }
+}
+
+/**************************************************************************
+ * @fn		SPI_SSOEConfig
+ *
+ * @brief	Used to set/clear SSOE bit of SPI peripheral.
+ *
+ * @param[in] pSPIx		Pointer to SPI's base address.
+ * @param[in] enable	Boolean saying whether SPI should be enabled or disabled.
+ *
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
+ *
+ * @note    
+ ***************************************************************************/
+ status_t SPI_SSOEConfig(SPI_reg_t *pSPIx, uint8_t enable)
+ {
+    if (!SPI_IsValidInstance(pSPIx))
+        return STATUS_INVALID_PARAM;
+
+    if (enable == ENABLE)
+        pSPIx->CR2 |= (1U << SPI_CR2_SSOE_BIT);
+    else if (enable == DISABLE)
+        pSPIx->CR2 &= ~(1U << SPI_CR2_SSOE_BIT);
+    else
+        return STATUS_INVALID_PARAM;
+
+    return STATUS_OK;
+}
