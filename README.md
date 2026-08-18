@@ -29,6 +29,7 @@ The current implementation supports:
 ### SPI
 - **`005SPI_TX`**: A basic demo demonstrating SPI TX capabilities.
 - [**`006SPI_arduino_TX`**](./demos/006SPI_arduino_TX_README.md): This demo sends a length byte followed by a payload string to an Arduino SPI slave from a STM32F407 master.
+- [**`007SPI_arduino_CMD`**](./demos/007SPI_arduino_CMD_README.md): This demo makes use of full-duplex SPI communication using the custom SPI driver to send commands to an Arduino Uno slave from an STM32F407 master.
 
 ## Directory Structure
 ```
