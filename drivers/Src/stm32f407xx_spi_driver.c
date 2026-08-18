@@ -28,6 +28,23 @@ static inline uint8_t SPI_IsValidInstance(SPI_reg_t *pSPIx)
 }
 
 /**************************************************************************
+ * @fn		SPI_IsMaster
+ *
+ * @brief	Used to determine whether SPI peripheral is in master-mode.
+ *
+ * @param[in] pSPIx		SPI peripheral base address.
+ *
+ * @return	Boolean indicating if SPI is master (1) or not (0).
+ *
+ ***************************************************************************/
+static inline uint8_t SPI_IsMaster(SPI_reg_t *pSPIx)
+{
+    if ( !SPI_IsValidInstance(pSPIx) ) return 0;
+
+    return (uint8_t)((pSPIx->CR1 >> SPI_CR1_MSTR_BIT) & 1U);
+}
+
+/**************************************************************************
  * @fn		SPI_GetFlag
  *
  * @brief	Used to read flag in a SPI's status register (SR).
@@ -270,6 +287,7 @@ status_t SPI_Reset(SPI_reg_t *pSPIx)
  *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
  * @note    This is a blocking send-data.
+ * @note    If using 16-bit data-frame format, length must be even.
  ***************************************************************************/
 status_t    SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len)
 {
@@ -303,17 +321,85 @@ status_t    SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len)
             len -= 2;
         }
 
-        // Drain RX buffer
-        if(SPI_GetFlag(pSPIx, SPI_SR_RXNE_BIT))
-        {
-            if (!dff)
-                (void)*(volatile uint8_t *)&pSPIx->DR;
-            else
-                (void)*(volatile uint16_t *)&pSPIx->DR;
-        }
+        // Clear RX buffer
+        while ( !SPI_GetFlag(pSPIx, SPI_SR_RXNE_BIT) );
+
+        if (!dff)
+            (void)*(volatile uint8_t *)&pSPIx->DR;
+        else
+            (void)*(volatile uint16_t *)&pSPIx->DR;
     }
 
     while(!SPI_GetFlag(pSPIx, SPI_SR_TXE_BIT)); // wait until TX is empty
+    while(SPI_GetFlag(pSPIx, SPI_SR_BSY_BIT));  // wait until not busy
+    
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		SPI_Receive
+ *
+ * @brief	An API which sends data via SPI.
+ *
+ * @param[in] pSPIx     Pointer to SPI's base address.
+ * @param[in] pRXBuffer A data buffer to write received data to.
+ * @param[in] len       The number of bytes to receive.
+ *
+ * @return	Status indicating whether the command was successful (STATUS_OK)
+ *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
+ *
+ * @note	Sends dummy data if the peripheral is in master mode.
+ * @note    If using 16-bit data-frame format, length must be even.
+ ***************************************************************************/
+status_t SPI_Receive(SPI_reg_t *pSPIx, uint8_t *pRXBuffer, uint32_t len)
+{
+    if (!SPI_IsValidInstance(pSPIx) || !pRXBuffer)
+    {
+        return STATUS_INVALID_PARAM;
+    }
+
+    uint8_t dff = (pSPIx->CR1 >> SPI_CR1_DFF_BIT) & 1U;
+
+    // Ensures len is even if dff is 2-bytes wide
+    if (dff && (len % 2)) return STATUS_INVALID_PARAM;
+    
+    while(len)
+    {
+        // Fill TX buffer with dummy bytes if in Master mode
+        if ( SPI_IsMaster(pSPIx) )
+        {
+            while ( !SPI_GetFlag(pSPIx, SPI_SR_TXE_BIT) );      // poll until tx-empty
+
+            if (!dff)
+            {
+                *((volatile uint8_t*)&pSPIx->DR) = 0xFFU;       // 1-byte filler
+            }
+            else
+            {
+                *((volatile uint16_t*)&pSPIx->DR) = 0xFFFFU;    // 2-byte filler
+            }
+        }
+
+        while ( !SPI_GetFlag(pSPIx, SPI_SR_RXNE_BIT) );     // poll until rx-not-empty
+
+        if(!dff)
+        {
+            // read one byte from DR
+            *pRXBuffer = *((volatile uint8_t*)&pSPIx->DR);
+
+            pRXBuffer++;
+            len--;
+        }
+        else
+        {
+            // read two bytes from DR
+            *((uint16_t*)pRXBuffer) = *((volatile uint16_t*)&pSPIx->DR);
+
+            pRXBuffer += 2;
+            len -= 2;
+        }
+    }
+
     return STATUS_OK;
 }
 

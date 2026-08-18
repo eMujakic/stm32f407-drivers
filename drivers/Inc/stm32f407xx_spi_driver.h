@@ -113,6 +113,8 @@ status_t SPI_PeriClkCtl(SPI_reg_t *pSPIx, uint8_t enable);					// Can enable/dis
 
 status_t SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len);      // Send data via SPI
 status_t SPI_Receive(SPI_reg_t *pSPIx, uint8_t *pRXBuffer, uint32_t len);   // Receive data via SPI
+status_t SPI_Transfer(SPI_reg_t *pSPIx, uint8_t *pTXBuffer,                 // Full-duplex send & receive
+                      uint8_t *pRXBuffer, uint32_t len);
 
 status_t SPI_IRQEnable(uint8_t IRQNumber);							        // Enables IRQ number in the NVIC
 status_t SPI_IRQDisable(uint8_t IRQNumber);							        // Disables IRQ number in the NVIC
