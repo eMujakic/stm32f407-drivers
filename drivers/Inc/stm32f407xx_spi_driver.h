@@ -10,6 +10,31 @@
 
 #include "stm32f407xx.h"
 
+#define SPI_TIMEOUT         100000U     // TODO
+
+// ====================== SPI state macros =====================
+#define SPI_READY           0U
+#define SPI_BUSY_RX         1U
+#define SPI_BUSY_TX         2U
+
+// ====================== SPI interrupt-type enum =====================
+typedef enum
+{
+    SPI_INTERRUPT_TXE       = 0U,
+    SPI_INTERRUPT_RXNE      = 1U,
+    SPI_INTERRUPT_ERR       = 2U,   // this only handles OVR errors currently
+    SPI_INTERRUPT_INVALID   = 3U
+} SPI_interrupt_t;
+
+// ====================== SPI application event macros =====================
+typedef enum
+{
+    SPI_EVENT_TX_DONE = 1U,
+    SPI_EVENT_RX_DONE = 2U,
+    SPI_EVENT_OVR_ERR = 3U,
+    SPI_EVENT_CRC_ERR = 4U
+} SPI_event_t;
+
 // ====================== SPI device mode enum =====================
 typedef enum
 {
@@ -38,7 +63,7 @@ typedef enum
     SPI_BAUD_DIV32   = 4U,
     SPI_BAUD_DIV64   = 5U,
     SPI_BAUD_DIV128  = 6U,
-    SPI_BAUD_DIV256  = 7U,
+    SPI_BAUD_DIV256  = 7U
 } SPI_baud_prescaler_t;
 
 // ====================== SPI DFF enum =============================
@@ -93,6 +118,14 @@ typedef struct
 {
     SPI_reg_t       *pSPIx;
     SPI_config_t    SPI_Config;
+
+    // interrupt state
+    uint8_t         *pTxBuffer;
+    uint8_t         *pRxBuffer;
+    uint32_t        TxLen;
+    uint32_t        RxLen;
+    uint8_t         TxState;
+    uint8_t         RxState;
 } SPI_handle_t;
 
 /*********************************************************************************
@@ -111,14 +144,25 @@ status_t SPI_SSOEConfig(SPI_reg_t *pSPIx, uint8_t enable);                  // S
 
 status_t SPI_PeriClkCtl(SPI_reg_t *pSPIx, uint8_t enable);					// Can enable/disable the clock for a given SPI base addr
 
+status_t SPI_ClearOVR(SPI_reg_t *pSPIx);                                    // Clears overrun flag in SPI's SR register
+status_t SPI_WaitForFlag(SPI_reg_t *pSPIx, uint32_t flagBit, uint8_t val);  // Blocking call, returns when flagBit flag == val (SET/RESET)
+
 status_t SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len);      // Send data via SPI
 status_t SPI_Receive(SPI_reg_t *pSPIx, uint8_t *pRXBuffer, uint32_t len);   // Receive data via SPI
 status_t SPI_Transfer(SPI_reg_t *pSPIx, uint8_t *pTXBuffer,                 // Full-duplex send & receive
                       uint8_t *pRXBuffer, uint32_t len);
 
-status_t SPI_IRQEnable(uint8_t IRQNumber);							        // Enables IRQ number in the NVIC
-status_t SPI_IRQDisable(uint8_t IRQNumber);							        // Disables IRQ number in the NVIC
-status_t SPI_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);	        // Sets IRQ priority for IRQ number
-status_t SPI_IRQHandling(SPI_handle_t *pHandle);						    // Clears EXTI pending bit
+status_t SPI_SendIT(SPI_handle_t *pHandle,
+                    uint8_t *pTXBuffer, uint32_t len);                      // Send data via SPI (non-blocking)
+status_t SPI_ReceiveIT(SPI_handle_t *pHandle,
+                    uint8_t *pRXBuffer, uint32_t len);                      // Receive data via SPI (non-blocking)
+
+status_t SPI_IRQHandling(SPI_handle_t *pHandle);						    // Dispatches pending SPI interrupt events to their handlers.
+
+status_t SPI_CloseTransmission(SPI_handle_t *pHandle);                      // Disables TXE interrupts and clears TX interrupt state in handle
+status_t SPI_CloseReception(SPI_handle_t *pHandle);                         // Disables RXNE interrupts and clears RX interrupt state in handle
+
+void SPI_ApplicationEventCallback(SPI_handle_t *pHandle,
+                                  SPI_event_t event);                       // Weakly implemented, called by driver-private interrupt handlers
 
 #endif /* INC_STM32F407XX_SPI_DRIVER_H_ */
