@@ -45,8 +45,8 @@ int main(void)
 	gpio_button.GPIO_PinConfig.mode = GPIO_MODE_IT_RT;		// rising-trigger interrupt mode
 
 	// IRQ configurations
-	GPIO_IRQEnable(IRQ_num);
-	GPIO_IRQPriority(IRQ_num, IRQ_PRI15);
+	NVIC_EnableIRQ(IRQ_num);
+	NVIC_SetPriority(IRQ_num, IRQ_PRI15);
 
 	GPIO_PeriClkCtl(BUTTON_PORT, ENABLE);
 	GPIO_Init(&gpio_button);

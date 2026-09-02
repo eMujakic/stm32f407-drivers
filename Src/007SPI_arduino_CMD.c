@@ -2,10 +2,18 @@
  * @file		007SPI_arduino_CMD.c
  * @author		ernad
  * @date 		Aug 15, 2026
- * @brief		TODO
+ * @brief		SPI full-duplex demo, enabling a STM32 master to send commands to an Arduino.
  *
  * @details
- * TODO
+ * This demo makes use of full-duplex SPI communication using the custom SPI driver to send
+ * commands to an Arduino Uno slave from an STM32F407 master.
+ *
+ * The supported commands include:
+ * - `CMD_LED_CTL`: This command takes a pin number and value as arguments and either enables or disables an LED connected to the Arduino at the given pin.
+ * - `CMD_LED_READ`: This command takes a pin number as an argument and the Arduino slave returns the status of the LED at that pin (ON/OFF).
+ * - `CMD_SENSOR_READ`: This command requests the ADC value of a given analog pin on the Arduino slave.
+ * - `CMD_PRINT`: This command sends a byte buffer to the Arduino, which then prints the data to its serial terminal.
+ * - `CMD_ID_READ`: This command requests the ID of the Arduino slave.
  */
 
 #include <stdint.h>
@@ -247,7 +255,7 @@ int main(void)
         perform_led_ctl(1, 0);
 
         // =========== CMD_SENSOR_READ(pinNum{0-5}) ===========
-        uint8_t sensor = perform_sensor_read(1);
+        perform_sensor_read(1);
 
         // =========== CMD_PRINT(buf, len) ===========
         char buf[] = "Hello from STM32!";

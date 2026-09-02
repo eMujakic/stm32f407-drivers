@@ -1,4 +1,4 @@
-# 007 Arduino CMD Demo
+# 007 Arduino SPI Commands Demo
 
 ### Overview
 This demo makes use of full-duplex SPI communication using the custom SPI driver to send commands to an Arduino Uno slave from an STM32F407 master.

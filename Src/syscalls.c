@@ -29,7 +29,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/times.h>
-
+#include <stdint.h>
 
 /* Variables */
 extern int __io_putchar(int ch) __attribute__((weak));
@@ -77,16 +77,32 @@ __attribute__((weak)) int _read(int file, char *ptr, int len)
   return len;
 }
 
-__attribute__((weak)) int _write(int file, char *ptr, int len)
-{
-  (void)file;
-  int DataIdx;
+#define ITM_PORT0_U32          (*((volatile uint32_t *)0xE0000000))
+#define ITM_TER                (*((volatile uint32_t *)0xE0000E00))
+#define ITM_TCR                (*((volatile uint32_t *)0xE0000E80))
+#define DEMCR                  (*((volatile uint32_t *)0xE000EDFC))
+#define DEMCR_TRCENA           (1UL << 24)
 
-  for (DataIdx = 0; DataIdx < len; DataIdx++)
-  {
-    __io_putchar(*ptr++);
-  }
-  return len;
+int _write(int file, char *ptr, int len)
+{
+    (void)file;
+
+    for (int i = 0; i < len; i++)
+    {
+        if ((DEMCR & DEMCR_TRCENA) &&
+            (ITM_TCR & 1UL) &&
+            (ITM_TER & 1UL))
+        {
+            while (ITM_PORT0_U32 == 0)
+            {
+                /* wait */
+            }
+
+            ITM_PORT0_U32 = (uint32_t)ptr[i];
+        }
+    }
+
+    return len;
 }
 
 int _close(int file)
