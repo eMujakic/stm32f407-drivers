@@ -8,6 +8,10 @@
 #ifndef INC_STM32F407XX_H_
 #define INC_STM32F407XX_H_
 #include<stdint.h>
+#include<stddef.h>
+
+// used for weak function implementations
+#define __weak __attribute__((weak))
 
 /***********************************************************************
  *					START: Processor Specific Details
@@ -35,20 +39,27 @@
 typedef enum {
 	STATUS_OK = 0,
 	STATUS_ERROR,
-	STATUS_INVALID_PARAM
+	STATUS_INVALID_PARAM,
+	STATUS_BUSY
 } status_t;
 
 // interrupt-request numbers of STM32F407 MCU
 typedef enum
 {
-	IRQ_NUM_EXTI0 = 6,
-	IRQ_NUM_EXTI1 = 7,
-	IRQ_NUM_EXTI2 = 8,
-	IRQ_NUM_EXTI3 = 9,
-	IRQ_NUM_EXTI4 = 10,
-	IRQ_NUM_EXTI5_9 = 23,
-	IRQ_NUM_EXTI10_15 = 40,
-	IRQ_NUM_INVALID = 0xFF
+	IRQ_NUM_EXTI0 		= 6U,
+	IRQ_NUM_EXTI1 		= 7U,
+	IRQ_NUM_EXTI2 		= 8U,
+	IRQ_NUM_EXTI3 		= 9U,
+	IRQ_NUM_EXTI4 		= 10U,
+	IRQ_NUM_EXTI5_9 	= 23U,
+	IRQ_NUM_EXTI10_15 	= 40U,
+
+	IRQ_NUM_SPI1		= 35U,
+	IRQ_NUM_SPI2		= 36U,
+	IRQ_NUM_SPI3		= 51U,
+
+	IRQ_NUM_MAX 		= 81U,
+	IRQ_NUM_INVALID		= 0xFFU
 } IRQ_num_t;
 
 // IRQ priorities of STM32F407 MCU
@@ -367,6 +378,8 @@ typedef struct
 
 #include "stm32f407xx_gpio_driver.h"
 #include "stm32f407xx_spi_driver.h"
+#include "stm32f407xx_nvic_driver.h"
+
 #endif /* INC_STM32F407XX_H_ */
 
 
