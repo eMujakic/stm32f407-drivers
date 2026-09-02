@@ -30,6 +30,7 @@ The current implementation supports:
 - **`005SPI_TX`**: A basic demo demonstrating SPI TX capabilities.
 - [**`006SPI_arduino_TX`**](./demos/006SPI_arduino_TX_README.md): This demo sends a length byte followed by a payload string to an Arduino SPI slave from a STM32F407 master.
 - [**`007SPI_arduino_CMD`**](./demos/007SPI_arduino_CMD_README.md): This demo makes use of full-duplex SPI communication using the custom SPI driver to send commands to an Arduino Uno slave from an STM32F407 master.
+- [**`008SPI_arduino_interrupt`**](./demos/008SPI_arduino_interrupt.md):
 
 ## Directory Structure
 ```
@@ -42,14 +43,20 @@ stm32f4xx_drivers/
 │   ├── 004button_interrupt.c           # GPIO interrupt delivery demo using button & LED.
 │   ├── 005SPI_TX.c                     # Basic SPI TX demo.
 │   ├── 006SPI_arduino_TX.c             # SPI TX demo with Arduino Slave.
+│   ├── 007SPI_arduino_CMD              # SPI full-duplex demo with Arduino Slave.
+│   ├── 008SPI_arduino_interrupt        # SPI interrupt-driven demo with Arduino Slave.
 │   ├── syscalls.c                      # Stm32CubeIDE auto-generated stub system calls.
 │   └── sysmem.c                        # Stm32CubeIDE auto-generated heap management lib.
 ├── Startup/
 │   └── startup_stm32f407vgtx.s         # Startup assembly file: vector table, reset handler, etc.
 ├── arduino/
 │   └── 006SPI_arduino_RX.ino           # Ardunio SPI slave to test SPI TX functionality.
+│   └── 007_SPI_arduino_CMD.ino         # Arduino SPI slave code to test full-duplex functionality.
+│   └── 008_SPI_arduino_interrupt.ino   # Arduino SPI slave code to test SPI interrupt-support.
 ├── demos/ 
 │   └── 006SPI_arduino_TX_README.md     # Documentation for SPI Arduino slave demo.
+│   └── 007SPI_arduino_CMD_README.md    # Documentation for SPI full-duplex demo.
+│   └── 008SPI_arduino_interrupt.md     # Documentation for SPI interrupt demo.
 ├── docs/
 │   ├── images/                         # Images of Logic Analyzer Output or Hardware Config.
 │   └── function_docs_template.txt      # Doxygen template
@@ -58,9 +65,11 @@ stm32f4xx_drivers/
 │   │   ├── stm32f407xx.h               # Device-specific header
 │   │   ├── stm32f407xx_gpio_driver.h   # GPIO-driver header file
 │   │   └── stm32f407xx_spi_driver.h    # SPI-driver header file
+│   │   └── stm32f407xx_nvic_driver.h   # NVIC-driver header file
 │   ├── Src/
 │   │   ├── stm32f407xx_gpio_driver.c   # GPIO-driver C file
 │   │   └── stm32f407xx_spi_driver.c    # SPI-driver C file
+│   │   └── stm32f407xx_nvic_driver.c   # NVIC-driver C file
 ├── STM32F407VGTX_FLASH.ld              # Linker script for running firmware from flash.
 ├── STM32F407VGTX_RAM.ld                # Linker script for running firmware from SRAM.
 └── README.md
