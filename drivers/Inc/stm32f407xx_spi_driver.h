@@ -163,6 +163,6 @@ status_t SPI_CloseTransmission(SPI_handle_t *pHandle);                      // D
 status_t SPI_CloseReception(SPI_handle_t *pHandle);                         // Disables RXNE interrupts and clears RX interrupt state in handle
 
 void SPI_ApplicationEventCallback(SPI_handle_t *pHandle,
-                                  SPI_event_t event);                       // Weakly implemented, called by driver-private interrupt handlers
+                                  SPI_event_t event);                       // Weakly implemented, called by private driver interrupt handlers
 
 #endif /* INC_STM32F407XX_SPI_DRIVER_H_ */

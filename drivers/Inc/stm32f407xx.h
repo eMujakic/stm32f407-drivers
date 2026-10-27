@@ -243,6 +243,21 @@ typedef struct
 	volatile uint32_t CFGR;								// SYSCFG configuration register
 } SYSCFG_reg_t;
 
+// ======================= I2C register struct =======================
+typedef struct
+{
+	volatile uint16_t CR1;								// I2C control reg. 1
+	volatile uint16_t CR2;								// I2C control reg. 2
+	volatile uint16_t OAR1;								// Own-address reg. 1
+	volatile uint16_t OAR2;								// Own-address reg. 2
+	volatile uint16_t DR;								// Data register
+	volatile uint16_t SR1;								// Status reg. 1
+	volatile uint16_t SR2;								// Status reg. 2
+	volatile uint16_t CCR;								// Clock control reg.
+	volatile uint16_t TRISE;							// Configure SCL rise delay
+	volatile uint16_t FLTR;								// Configure noise filters
+} I2C_reg_t;
+
 
 /***********************************************************************
  * 						Type-Casted Register Macros
@@ -267,6 +282,10 @@ typedef struct
 #define SPI4					( (SPI_reg_t*) 		SPI4_BASE_ADDR)
 // #define SPI5					( (SPI_reg_t*) 		SPI5_BASE_ADDR)
 // #define SPI6					( (SPI_reg_t*) 		SPI6_BASE_ADDR)
+
+#define I2C1					( (I2C_reg_t*)		I2C1_BASE_ADDR )
+#define I2C2					( (I2C_reg_t*)		I2C2_BASE_ADDR )
+#define I2C3					( (I2C_reg_t*)		I2C3_BASE_ADDR )
 
 #define RCC						( (RCC_reg_t*)		RCC_BASE_ADDR )
 
@@ -374,11 +393,75 @@ typedef struct
 #define SPI_SR_BSY_BIT			7U
 #define SPI_SR_FRE_BIT			8U
 
+// ======================= 	I2C Bit-Position Macros =======================
+#define I2C_CR1_PE_BIT			0U
+#define I2C_CR1_SMBUS_BIT		1U
+#define I2C_CR1_SMBTYPE_BIT		3U
+#define I2C_CR1_ENARP_BIT		4U
+#define I2C_CR1_ENPEC_BIT		5U
+#define I2C_CR1_ENGC_BIT		6U
+#define I2C_CR1_NOSTRETCH_BIT	7U
+#define I2C_CR1_START_BIT		8U
+#define I2C_CR1_STOP_BIT		9U
+#define I2C_CR1_ACK_BIT			10U
+#define I2C_CR1_POS_BIT			11U
+#define I2C_CR1_PEC_BIT			12U
+#define I2C_CR1_ALERT_BIT		13U
+#define I2C_CR1_SWRST_BIT		15U
 
+#define I2C_CR2_FREQ_BIT		0U
+#define I2C_CR2_ITERREN_BIT		8U
+#define I2C_CR2_ITEVTEN_BIT		9U
+#define I2C_CR2_ITBUFEN_BIT		10U
+#define I2C_CR2_DMAEN_BIT		11U
+#define I2C_CR2_LAST_BIT		12U
+
+#define I2C_OAR1_ADD0_BIT		0U
+#define I2C_OAR1_ADD_BIT		1U
+#define I2C_OAR1_ADDMODE_BIT	15U
+
+#define I2C_OAR2_ENDUAL_BIT		0U
+#define I2C_OAR2_ADD2_BIT		1U
+
+#define I2C_DR_DR_BIT			0U
+
+#define I2C_SR1_SB_BIT			0U
+#define I2C_SR1_ADDR_BIT		1U
+#define I2C_SR1_BTF_BIT			2U
+#define I2C_SR1_ADD10_BIT		3U
+#define I2C_SR1_STOPF_BIT		4U
+#define I2C_SR1_RxNE_BIT		6U
+#define I2C_SR1_TxE_BIT			7U
+#define I2C_SR1_BERR_BIT		8U
+#define I2C_SR1_ARLO_BIT		9U
+#define I2C_SR1_AF_BIT			10U
+#define I2C_SR1_OVR_BIT			11U
+#define I2C_SR1_PECERR_BIT		12U
+#define I2C_SR1_TIMEOUT_BIT		14U
+#define I2C_SR1_SMBALERT_BIT	15U
+
+#define I2C_SR2_MSL_BIT			0U
+#define I2C_SR2_BUSY_BIT		1U
+#define I2C_SR2_TRA_BIT			2U
+#define I2C_SR2_GENCALL_BIT		4U
+#define I2C_SR2_SMBDEFAULT_BIT	5U
+#define I2C_SR2_SMBHOST_BIT		6U
+#define I2C_SR2_DUALF_BIT		7U
+#define I2C_SR2_PEC_BIT			8U
+
+#define I2C_CCR_CCR_BIT			0U
+#define I2C_CCR_DUTY_BIT		14U
+#define I2C_CCR_FS_BIT			15U
+
+#define I2C_TRISE_TRISE_BIT		0U
+
+#define I2C_FLTR_DNF_BIT		0U
+#define I2C_FLTR_ANOFF_BIT		4U
 
 #include "stm32f407xx_gpio_driver.h"
 #include "stm32f407xx_spi_driver.h"
 #include "stm32f407xx_nvic_driver.h"
+#include "stm32f407xx_i2c_driver.h"
 
 #endif /* INC_STM32F407XX_H_ */
 
