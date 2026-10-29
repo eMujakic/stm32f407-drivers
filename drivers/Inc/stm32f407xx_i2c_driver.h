@@ -33,8 +33,8 @@ typedef enum
 // ====================== I2C duty cycle enum =============================
 typedef enum
 {
-    I2C_FM_DUTY_2       = 0U,               // TODO
-    I2C_FM_DUTY_16_9    = 1U                // TODO
+    I2C_FM_DUTY_2       = 0U,               // Fast mode: T_low / T_high = 2    (low-time to high-time ratio)
+    I2C_FM_DUTY_16_9    = 1U                // Fast mode: T_low / T_high = 16/9 (low-time to high-time ratio)
 } I2C_duty_cycle_t;
 
 // ====================== Configuration structure for I2C ==================
@@ -50,7 +50,7 @@ typedef struct
 typedef struct
 {
     I2C_reg_t       *pI2Cx;
-    I2C_config_t    I2C_Cconfig;
+    I2C_config_t    I2C_Config;
 } I2C_handle_t;
 
 /*********************************************************************************

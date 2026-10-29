@@ -315,6 +315,10 @@ typedef struct
 #define I2C2_PCLK_DI()					( RCC->APB1ENR &= ~( 1 << 22 ) )
 #define I2C3_PCLK_DI()					( RCC->APB1ENR &= ~( 1 << 23 ) )
 
+#define I2C1_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 21 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 21 ))  );  } while(0)
+#define I2C2_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 22 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 22 ))  );  } while(0)
+#define I2C3_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 23 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 23 ))  );  } while(0)
+
 // ======================= 	SPI clock enable/disable macros =======================
 #define SPI1_PCLK_EN()					( RCC->APB2ENR |= ( 1 << 12 ) )
 #define SPI2_PCLK_EN()					( RCC->APB1ENR |= ( 1 << 14 ) )
@@ -358,6 +362,21 @@ typedef struct
  * 							
  ***********************************************************************/
 
+
+// ======================= 	RCC Bit-Position Macros =======================
+#define RCC_CFGR_SW0_BIT		0U
+#define RCC_CFGR_SW1_BIT		1U
+#define RCC_CFGR_SWS0_BIT		2U
+#define RCC_CFGR_SWS1_BIT		3U
+#define RCC_CFGR_HPRE_BIT		4U
+#define RCC_CFGR_PPRE1_BIT		10U
+#define RCC_CFGR_PPRE2_BIT		13U
+#define RCC_CFGR_RTCPRE_BIT		16U
+#define RCC_CFGR_MCO1_BIT		21U
+#define RCC_CFGR_I2SSCR_BIT		23U
+#define RCC_CFGR_MCO1PRE_BIT	24U
+#define RCC_CFGR_MOC2PRE_BIT	27U
+#define RCC_CFGR_MCO2_BIT		30U
 
 // ======================= 	SPI Bit-Position Macros =======================
 #define SPI_CR1_CPHA_BIT		0U
@@ -462,6 +481,7 @@ typedef struct
 #include "stm32f407xx_spi_driver.h"
 #include "stm32f407xx_nvic_driver.h"
 #include "stm32f407xx_i2c_driver.h"
+#include "stm32f407xx_rcc_driver.h"
 
 #endif /* INC_STM32F407XX_H_ */
 
