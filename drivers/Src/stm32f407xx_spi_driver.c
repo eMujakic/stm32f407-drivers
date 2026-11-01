@@ -42,25 +42,27 @@ static inline uint8_t SPI_IsValidInstance(SPI_reg_t *pSPIx)
  * read, or the software timeout expires.
  *
  * @param[in] pSPIx		SPI peripheral base address.
+ * @param[in] flag		The SPI flag to wait for.
+ * @param[in] val		The desired value of flag.
  *
  * @return	Status indicating whether the command was successful (STATUS_OK)
  *			or not (STATUS_INVALID_PARAM / STATUS_BUSY).
  *
  ***************************************************************************/
-status_t SPI_WaitForFlag(SPI_reg_t *pSPIx, uint32_t flagBit, uint8_t val)
+status_t SPI_WaitForFlag(SPI_reg_t *pSPIx, SPI_flag_t flag, uint8_t val)
 {
     // validate args
     if (!SPI_IsValidInstance(pSPIx) ||
-        flagBit > SPI_SR_FRE_BIT    ||
+        flag > SPI_FRE_FLAG         ||
         val > 1U)
     {
         return STATUS_INVALID_PARAM;
     }
         
     uint32_t timeout = SPI_TIMEOUT;
-    while(SPI_GetFlag(pSPIx, flagBit) != val)
+    while(SPI_GetFlag(pSPIx, flag) != val)
     {
-        if (timeout == 0U) return STATUS_BUSY;
+        if (timeout == 0U) return STATUS_TIMEOUT;
         timeout--;
     }
 
@@ -119,16 +121,16 @@ status_t SPI_ClearOVR(SPI_reg_t *pSPIx)
  * @brief	Used to read flag in a SPI's status register (SR).
  *
  * @param[in] pSPIx		SPI peripheral base address.
- * @param[in] flagBit	Specific flag-bit to read.
+ * @param[in] flag	Specific flag-bit to read.
  *
  * @return	The value of pSPIx's SR at flagBit. 
  ***************************************************************************/
-uint8_t SPI_GetFlag(SPI_reg_t *pSPIx, uint32_t flagBit)
+uint8_t SPI_GetFlag(SPI_reg_t *pSPIx, SPI_flag_t flag)
 {
     if (!SPI_IsValidInstance(pSPIx))    return 0U;
-    if (flagBit > SPI_SR_FRE_BIT)       return 0U;
+    if (flag > SPI_FRE_FLAG)            return 0U;
 
-    return (uint8_t) ((pSPIx->SR >> flagBit) & 1U);
+    return (uint8_t) ((pSPIx->SR >> flag) & 1U);
 }
 
 /**************************************************************************
@@ -224,8 +226,8 @@ static status_t SPI_WriteDummy(SPI_reg_t *pSPIx)
         return STATUS_INVALID_PARAM;
 
     status_t timeout = SPI_WaitForFlag(pSPIx, SPI_SR_TXE_BIT, SET);
-    if ( timeout )
-        return STATUS_BUSY;
+    if ( timeout == STATUS_TIMEOUT )
+        return STATUS_TIMEOUT;
 
     SPI_WriteDR(pSPIx, 0xFFFFU);
     return STATUS_OK;

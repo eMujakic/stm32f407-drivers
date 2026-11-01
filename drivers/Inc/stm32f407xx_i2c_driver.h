@@ -10,7 +10,47 @@
 
 #include "stm32f407xx.h"
 
-// ====================== I2C application event macros =====================
+#define I2C_TIMEOUT 1000000U // Number of iterations to wait for I2C flag
+
+#define I2C_TRISE_MAX_SM 1000U  // in nanoseconds
+#define I2C_TRISE_MAX_FM 300U   // in nanoseconds
+
+// ====================== I2C flags enum =============================
+typedef enum
+{
+    I2C_SB_FLAG = 0U,
+    I2C_ADDR_FLAG = 1U,
+    I2C_BTF_FLAG = 2U,
+    I2C_ADD10_FLAG = 3U,
+    I2C_STOPF_FLAG = 4U,
+    I2C_RxNE_FLAG = 5U,
+    I2C_TxE_FLAG = 6U,
+    I2C_BERR_FLAG = 7U,
+    I2C_ARLO_FLAG = 8U,
+    I2C_AF_FLAG = 9U,
+    I2C_OVR_FLAG = 10U,
+    I2C_PECERR_FLAG = 11U,
+    I2C_TIMEOUT_FLAG = 12U,
+    I2C_SMBALERT_FLAG = 13U,
+    I2C_MSL_FLAG = 14U,
+    I2C_BUSY_FLAG = 15U,
+    I2C_TRA_FLAG = 16U,
+    I2C_GENCALL_FLAG = 17U,
+    I2C_SMBDEFAULT_FLAG = 18U,
+    I2C_SMBHOST_FLAG = 19U,
+    I2C_DUALF_FLAG = 20U,
+    I2C_PEC_FLAG = 21U,
+    I2C_NOERR_FLAG = 22U // returned by certain APIs to indicate that no error flag was raised
+} I2C_flag_t;
+
+// ====================== I2C Read/Write enum =====================
+typedef enum
+{
+    I2C_WRITE   = 0U,
+    I2C_READ    = 1U
+} I2C_rw_t;
+
+// ====================== I2C application event enum =====================
 typedef enum
 {
     I2C_EVENT_PLACEHOLDER = 0    // TODO
@@ -62,11 +102,16 @@ status_t I2C_ConfigInit(I2C_config_t *pConfig);					    // Sets I2C_config_t str
 status_t I2C_Init(I2C_handle_t *pI2CHandle);						// Configures an I2C pin according to I2C_config_t struct
 status_t I2C_Reset(I2C_reg_t *pI2Cx);								// Resets a I2C peripheral to default register values
 
+status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle,               // Sends data to slave as master.
+    uint8_t *pTxBuffer, uint32_t len, uint8_t slaveAddr);
+
 status_t I2C_PeriClkCtl(I2C_reg_t *pI2Cx, uint8_t enable);          // Enables/disables the clock for a given I2C base addr
 
 status_t I2C_PeripheralControl(I2C_reg_t *pI2Cx, uint8_t enable);   // Enables or disables PE bit in I2C_CR1 register
 
-uint8_t  I2C_GetFlag(I2C_reg_t *pI2Cx, uint32_t flagBit);           // Returns value of SR1/SR2 at flagBit position
+uint8_t  I2C_GetFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag);            // Returns value of SR1/SR2 at flag position
+status_t I2C_WaitForFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag,         // Spins until flag==val or timeout occurs
+    uint8_t val);
 
 void I2C_ApplicationEventCallback(I2C_handle_t *pHandle,
                                   I2C_event_t event);               // Weakly implemented, called by private driver interrupt handlers

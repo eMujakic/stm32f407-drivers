@@ -40,7 +40,9 @@ typedef enum {
 	STATUS_OK = 0,
 	STATUS_ERROR,
 	STATUS_INVALID_PARAM,
-	STATUS_BUSY
+	STATUS_BUSY,
+	STATUS_TIMEOUT,
+	STATUS_NACK
 } status_t;
 
 // interrupt-request numbers of STM32F407 MCU

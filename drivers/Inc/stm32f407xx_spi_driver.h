@@ -10,12 +10,27 @@
 
 #include "stm32f407xx.h"
 
-#define SPI_TIMEOUT         100000U     // TODO
+#define SPI_TIMEOUT         1000000U     // Number of iterations to wait for SPI flag
 
 // ====================== SPI state macros =====================
 #define SPI_READY           0U
 #define SPI_BUSY_RX         1U
 #define SPI_BUSY_TX         2U
+
+// ====================== SPI flag enum =====================
+typedef enum
+{
+    SPI_RXNE_FLAG       = 0U,
+    SPI_TXE_FLAG        = 1U,
+    SPI_CHSIDE_FLAG     = 2U,
+    SPI_UDR_FLAG        = 3U,
+    SPI_CRCERR_FLAG     = 4U,
+    SPI_MODF_FLAG       = 5U,
+    SPI_OVR_FLAG        = 6U,
+    SPI_BSY_FLAG        = 7U,
+    SPI_FRE_FLAG        = 8U
+} SPI_flag_t;
+
 
 // ====================== SPI interrupt-type enum =====================
 typedef enum
@@ -137,7 +152,7 @@ status_t SPI_ConfigInit(SPI_config_t *pConfig);						        // Sets SPI_config_
 status_t SPI_Init(SPI_handle_t *pSPIHandle);								// Configures a SPI pin according to SPI_config_t struct
 status_t SPI_Reset(SPI_reg_t *pSPIx);										// Resets a SPI peripheral to default register values
 
-uint8_t  SPI_GetFlag(SPI_reg_t *pSPIx, uint32_t flagBit);                   // Returns value of SR at flagBit
+uint8_t  SPI_GetFlag(SPI_reg_t *pSPIx, SPI_flag_t flag);                    // Returns value of flag in SR
 
 status_t SPI_PeripheralControl(SPI_reg_t *pSPIx, uint8_t enable);           // Sets/clears SPE bit in SPI CR1 register
 status_t SPI_SSOEConfig(SPI_reg_t *pSPIx, uint8_t enable);                  // Sets/clears SSOE bit in SPI CR2 register
@@ -145,7 +160,7 @@ status_t SPI_SSOEConfig(SPI_reg_t *pSPIx, uint8_t enable);                  // S
 status_t SPI_PeriClkCtl(SPI_reg_t *pSPIx, uint8_t enable);					// Can enable/disable the clock for a given SPI base addr
 
 status_t SPI_ClearOVR(SPI_reg_t *pSPIx);                                    // Clears overrun flag in SPI's SR register
-status_t SPI_WaitForFlag(SPI_reg_t *pSPIx, uint32_t flagBit, uint8_t val);  // Blocking call, returns when flagBit flag == val (SET/RESET)
+status_t SPI_WaitForFlag(SPI_reg_t *pSPIx, SPI_flag_t flag, uint8_t val);   // Spins until flag==val or timeout occurs
 
 status_t SPI_Send(SPI_reg_t *pSPIx, uint8_t *pTXBuffer, uint32_t len);      // Send data via SPI
 status_t SPI_Receive(SPI_reg_t *pSPIx, uint8_t *pRXBuffer, uint32_t len);   // Receive data via SPI
