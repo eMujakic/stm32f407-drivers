@@ -30,8 +30,8 @@
 
 
 // ======================= generic macros =======================
-#define ENABLE 		1
-#define DISABLE 	0
+#define ENABLE 		1U
+#define DISABLE 	0U
 #define SET			ENABLE
 #define RESET 		DISABLE
 
@@ -248,16 +248,16 @@ typedef struct
 // ======================= I2C register struct =======================
 typedef struct
 {
-	volatile uint16_t CR1;								// I2C control reg. 1
-	volatile uint16_t CR2;								// I2C control reg. 2
-	volatile uint16_t OAR1;								// Own-address reg. 1
-	volatile uint16_t OAR2;								// Own-address reg. 2
-	volatile uint16_t DR;								// Data register
-	volatile uint16_t SR1;								// Status reg. 1
-	volatile uint16_t SR2;								// Status reg. 2
-	volatile uint16_t CCR;								// Clock control reg.
-	volatile uint16_t TRISE;							// Configure SCL rise delay
-	volatile uint16_t FLTR;								// Configure noise filters
+	volatile uint32_t CR1;								// I2C control reg. 1
+	volatile uint32_t CR2;								// I2C control reg. 2
+	volatile uint32_t OAR1;								// Own-address reg. 1
+	volatile uint32_t OAR2;								// Own-address reg. 2
+	volatile uint32_t DR;								// Data register
+	volatile uint32_t SR1;								// Status reg. 1
+	volatile uint32_t SR2;								// Status reg. 2
+	volatile uint32_t CCR;								// Clock control reg.
+	volatile uint32_t TRISE;							// Configure SCL rise delay
+	volatile uint32_t FLTR;								// Configure noise filters
 } I2C_reg_t;
 
 

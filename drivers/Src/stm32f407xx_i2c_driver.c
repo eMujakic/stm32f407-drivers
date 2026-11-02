@@ -168,7 +168,7 @@ static status_t I2C_WaitForFlagErr(I2C_reg_t *pI2Cx, I2C_flag_t flag, uint8_t va
         if (I2C_GetFlag(pI2Cx, I2C_AF_FLAG))
         {
             *errFlag = I2C_AF_FLAG;
-            return STATUS_ERROR;
+            return STATUS_NACK;
         }
         if (I2C_GetFlag(pI2Cx, I2C_OVR_FLAG))
         {
@@ -195,7 +195,8 @@ static status_t I2C_MasterErrHandling(I2C_reg_t *pI2Cx, status_t status, I2C_fla
         return STATUS_INVALID_PARAM;
 
     if (status != STATUS_ERROR &&
-        status != STATUS_TIMEOUT)
+        status != STATUS_TIMEOUT &&
+        status != STATUS_NACK)
         return STATUS_INVALID_PARAM;
 
     if (status == STATUS_ERROR)
@@ -217,7 +218,7 @@ static status_t I2C_MasterErrHandling(I2C_reg_t *pI2Cx, status_t status, I2C_fla
     if (I2C_GetFlag(pI2Cx, I2C_MSL_FLAG)) // request stop condition if still master
         I2C_RequestStopCondition(pI2Cx);
 
-    if (status == STATUS_ERROR && errFlag == I2C_AF_FLAG)
+    if (status == STATUS_NACK && errFlag == I2C_AF_FLAG)
         pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT); // clear AF flag AFTER requesting stop
 
     return status;
@@ -421,7 +422,7 @@ status_t I2C_PeriClkCtl(I2C_reg_t *pI2Cx, uint8_t enable)
     if (!pConfig)
         return STATUS_INVALID_PARAM;
 
-    pConfig->I2C_SCLSpeed       = I2C_SCL_SPEED_SM;     // Standard-mode speed (400KHz)
+    pConfig->I2C_SCLSpeed       = I2C_SCL_SPEED_SM;     // Standard-mode speed (100KHz)
     pConfig->I2C_DeviceAddr     = 0x00U;                // Own slave device addr
     pConfig->I2C_ACKControl     = I2C_ACK_EN;           // Enable automatic ACKing
     pConfig->I2C_FMDutyCycle    = I2C_FM_DUTY_2;        // ~33.3% duty cycle
