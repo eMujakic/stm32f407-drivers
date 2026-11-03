@@ -118,115 +118,173 @@ static void I2C_RequestStopCondition(I2C_reg_t *pI2Cx)
 }
 
 /**************************************************************************
- * @fn		I2C_WaitForFlagErr
+ * @fn		I2C_MasterErrHandling
  *
- * @brief	Spins until flag==val, software timeout is triggered, or an
- *          error flag (ARLO, BERR, AF, OVR, PECERR) is asserted.
+ * @brief	Basic error handling if the passed peripheral is an I2C master.
  *
- * @param[in] pI2Cx		Pointer to I2C's base address.
- * @param[in] flag		Single-bit flag to poll.
- * @param[in] val		Desired value for flag.
- * @param[in] errFlag   Pointer to store error flag.
+ * @details
+ * Clears ARLO, BERR, PECERR, OVR, and AF errors if detected, and requests
+ * a stop condition if appropriate.
  *
- * @return	STATUS_OK: flag == val before software timeout.
- *          STATUS_TIMEOUT: Software timeout triggered.
- *			STATUS_INVALID_PARAM: Invalid input.
+ * @param[in] pI2Cx	    Pointer to I2C's base address.
  *
- * @note	Does not handle waiting for a specific value on 
- *          any SR2 flags to avoid accidental clears of ADDR.
- *
- * @note    Error flags are checked according to the order in 
- *          the brief. i.e. (ARLO, BERR, AF, OVR, PECERR).
+ * @return	None.
  ***************************************************************************/
-static status_t I2C_WaitForFlagErr(I2C_reg_t *pI2Cx, I2C_flag_t flag, uint8_t val, I2C_flag_t *errFlag)
+static void I2C_MasterErrHandling(I2C_reg_t *pI2Cx)
 {
-    // validate args
-    if (!pI2Cx || !I2C_IsValidInstance(pI2Cx) ||
-        flag < I2C_SB_FLAG || flag > I2C_SMBALERT_FLAG ||
-        val > 1U)
+    // validate I2C pointer
+    if (!pI2Cx || !I2C_IsValidInstance(pI2Cx))
+        return;
+    
+    // arbitration error
+    uint8_t arloErr = (pI2Cx->SR1 >> I2C_SR1_ARLO_BIT) & 0x1U;
+    if (arloErr)
     {
-        return STATUS_INVALID_PARAM;
+        // clear ARLO flag
+        pI2Cx->SR1 &= ~(1U << I2C_SR1_ARLO_BIT);
     }
-
-    if (!errFlag)
-        return STATUS_INVALID_PARAM;
-    *errFlag = I2C_NOERR_FLAG;
-        
-    uint32_t timeout = I2C_TIMEOUT;
-    while(I2C_GetFlag(pI2Cx, flag) != val)
+    // bus error
+    if (pI2Cx->SR1 & (1U << I2C_SR1_BERR_BIT)) 
     {
-        if (I2C_GetFlag(pI2Cx, I2C_ARLO_FLAG))
-        {
-            *errFlag = I2C_ARLO_FLAG;
-            return STATUS_ERROR;
-        }
-        if (I2C_GetFlag(pI2Cx, I2C_BERR_FLAG))
-        {
-            *errFlag = I2C_BERR_FLAG;
-            return STATUS_ERROR;
-        }
-        if (I2C_GetFlag(pI2Cx, I2C_AF_FLAG))
-        {
-            *errFlag = I2C_AF_FLAG;
-            return STATUS_NACK;
-        }
-        if (I2C_GetFlag(pI2Cx, I2C_OVR_FLAG))
-        {
-            *errFlag = I2C_OVR_FLAG;
-            return STATUS_ERROR;
-        }
-        if (I2C_GetFlag(pI2Cx, I2C_PECERR_FLAG))
-        {
-            *errFlag = I2C_PECERR_FLAG;
-            return STATUS_ERROR;
-        }
+        // clear BERR flag
+        pI2Cx->SR1 &= ~(1U << I2C_SR1_BERR_BIT); 
+    }
+    // PEC mismatch
+    if (pI2Cx->SR1 & (1U << I2C_SR1_PECERR_BIT))
+    {
+        // clear PECERR flag
+        pI2Cx->SR1 &= ~(1U << I2C_SR1_PECERR_BIT);
+    }
+    // Over/Under-run
+    if (pI2Cx->SR1 & (1U << I2C_SR1_OVR_BIT)) 
+    {
+        // clear OVR flag
+        pI2Cx->SR1 &= ~(1U << I2C_SR1_OVR_BIT);
+    }
+    
+    // request stop condition if still master, no ARLO error,
+    // and no pending stop already.
+    if (I2C_GetFlag(pI2Cx, I2C_MSL_FLAG) && (arloErr == 0U) &&
+        ((pI2Cx->CR1 >> I2C_CR1_STOP_BIT) & 0x1U) == 0U)
+        I2C_RequestStopCondition(pI2Cx);
 
-        if (timeout == 0U) return STATUS_TIMEOUT;
-        timeout--;
+    if ( pI2Cx->SR1 & (1U << I2C_SR1_AF_BIT) ) // NACK
+        pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT); // clear AF flag AFTER requesting stop
+}
+
+/**************************************************************************
+ * @fn		I2C_ACKControl
+ *
+ * @brief	Enables/disables ACK bit for a given I2C peripheral.
+ *
+ * @param[in] pI2Cx	    Pointer to I2C's base address.
+ * @param[in] EnorDi	Enable/Disable
+ *
+ * @return	STATUS_OK: The ACK was successfully set/reset.
+ *          STATUS_INVALID_PARAM: Something wrong with argument(s) passed.
+ *          STATUS_ERROR: The passed peripheral was disabled (PE == 0).
+ ***************************************************************************/
+static status_t I2C_ACKControl(I2C_reg_t *pI2Cx, uint8_t EnorDi)
+{
+    // Validate inputs
+    if (!pI2Cx || !I2C_IsValidInstance(pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    if (EnorDi != ENABLE &&
+        EnorDi != DISABLE)
+        return STATUS_INVALID_PARAM;
+
+    // Validate peripheral enabled
+    if ( (pI2Cx->CR1 & (1U << I2C_CR1_PE_BIT)) == 0U )
+        return STATUS_ERROR;
+    
+    // ================ Configure ACK-Control ================
+    if (EnorDi == ENABLE)
+    {
+        pI2Cx->CR1 |= (1U << I2C_CR1_ACK_BIT); // set ACK-bit
+    }
+    else
+    {
+        pI2Cx->CR1 &= ~(1U << I2C_CR1_ACK_BIT); // clear ACK-bit
     }
 
     return STATUS_OK;
 }
 
-static status_t I2C_MasterErrHandling(I2C_reg_t *pI2Cx, status_t status, I2C_flag_t errFlag)
+/**************************************************************************
+ * @fn		I2C_RestoreACK
+ *
+ * @brief	Restores ACK bit in CR1 register to desired configuration.
+ *
+ * @param[in] pI2CHandle    Handle for an I2C peripheral.
+ *
+ * @return	STATUS_OK: The ACK was successfully restored.
+ *          STATUS_INVALID_PARAM: Something wrong with argument(s) passed.
+ *          STATUS_TIMEOUT: Timed-out waiting for STOP bit to clear.
+ *
+ * @note	This API can timeout waiting for the STOP bit in CR1 to clear.
+ *          It is not correct to try to set/clear the ACK bit while a 
+ *          STOP is still pending.
+ ***************************************************************************/
+static status_t I2C_RestoreACK(I2C_handle_t *pI2CHandle)
 {
-    // validate inputs
-    if (!pI2Cx || !I2C_IsValidInstance(pI2Cx))
+    // Validate inputs
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
         return STATUS_INVALID_PARAM;
 
-    if (status != STATUS_ERROR &&
-        status != STATUS_TIMEOUT &&
-        status != STATUS_NACK)
-        return STATUS_INVALID_PARAM;
-
-    if (status == STATUS_ERROR)
+    // Wait for STOP to be cleared
+    uint32_t timeout = I2C_TIMEOUT;
+    while ( (pI2CHandle->pI2Cx->CR1 & (1U << I2C_CR1_STOP_BIT)) != 0U )
     {
-        if (errFlag == I2C_ARLO_FLAG) // arbitration error
-        {
-            pI2Cx->SR1 &= ~(1U << I2C_SR1_ARLO_BIT); // clear ARLO flag
-            return status;
-        }
-        if (errFlag == I2C_BERR_FLAG) // bus error
-        {
-            pI2Cx->SR1 &= ~(1U << I2C_SR1_BERR_BIT); // clear BERR flag
-        }
-        if (errFlag == I2C_PECERR_FLAG) // PEC mismatch
-        {
-            pI2Cx->SR1 &= ~(1U << I2C_SR1_PECERR_BIT); // clear PECERR flag
-        }
+        if (timeout == 0U)
+            return STATUS_TIMEOUT;
+        timeout--;
     }
-    if (I2C_GetFlag(pI2Cx, I2C_MSL_FLAG)) // request stop condition if still master
-        I2C_RequestStopCondition(pI2Cx);
 
-    if (status == STATUS_NACK && errFlag == I2C_AF_FLAG)
-        pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT); // clear AF flag AFTER requesting stop
+    // Restore Initial ACK configuration
+    if (pI2CHandle->I2C_Config.I2C_ACKControl == I2C_ACK_EN)
+    {
+        pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_ACK_BIT);
+    }
+    else
+    {
+        pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_ACK_BIT);
+    }
 
-    return status;
+    return STATUS_OK;
 }
 
 // ***************************************************************
 // ********************* API IMPLEMENTATIONS *********************
 // ***************************************************************
+
+/**************************************************************************
+ * @fn		I2C_SoftwareReset
+ *
+ * @brief	Triggers the software reset for a given I2C peripheral.
+ *
+ * @param[in] pI2Cx	    Pointer to I2C's base address.
+ *
+ * @return	STATUS_OK: The peripheral was successfully reset.
+ *          STATUS_INVALID_PARAM: Something wrong with passed arguments.
+ *
+ * @note	This calls resets all configurations applied to the I2C
+ *          peripheral. The user will likely need to call I2C_Init()
+ *          again.
+ ***************************************************************************/
+status_t I2C_SoftwareReset(I2C_reg_t *pI2Cx)
+{
+    if(!pI2Cx || !I2C_IsValidInstance(pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // set SWRST bit
+    pI2Cx->CR1 |= (1U << I2C_CR1_SWRST_BIT);
+    // clear SWRST bit
+    pI2Cx->CR1 &= ~(1U << I2C_CR1_SWRST_BIT);
+
+    return STATUS_OK;
+}
 
 /**************************************************************************
  * @fn		I2C_GetFlag
@@ -325,32 +383,58 @@ uint8_t  I2C_GetFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag)
 /**************************************************************************
  * @fn		I2C_WaitForFlag
  *
- * @brief	Spins until flag==val or software timeout is triggered.
+ * @brief	Spins until flag==val, software timeout is triggered, or an
+ *          error flag (ARLO, BERR, AF, OVR, PECERR) is asserted.
  *
  * @param[in] pI2Cx		Pointer to I2C's base address.
  * @param[in] flag		Single-bit flag to poll.
  * @param[in] val		Desired value for flag.
  *
  * @return	STATUS_OK: flag == val before software timeout.
- *          STATUS_BUSY: Software timeout triggered.
+ *          STATUS_TIMEOUT: Software timeout triggered.
  *			STATUS_INVALID_PARAM: Invalid input.
+ *          STATUS_ERROR: An error was detected.
  *
  * @note	Does not handle waiting for a specific value on 
- *          I2C_PEC_FLAG.
+ *          any SR2 flags to avoid accidental clears of ADDR.
+ *
+ * @note    Error flags are checked according to the order in 
+ *          the brief. i.e. (ARLO, BERR, AF, OVR, PECERR).
  ***************************************************************************/
 status_t I2C_WaitForFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag, uint8_t val)
 {
     // validate args
     if (!pI2Cx || !I2C_IsValidInstance(pI2Cx) ||
-        flag < I2C_SB_FLAG || flag >= I2C_PEC_FLAG ||
+        flag < I2C_SB_FLAG || flag > I2C_SMBALERT_FLAG ||
         val > 1U)
     {
         return STATUS_INVALID_PARAM;
     }
         
     uint32_t timeout = I2C_TIMEOUT;
-    while(I2C_GetFlag(pI2Cx, flag) != val)
+    for(;;)
     {
+        // check for errors
+        if (I2C_GetFlag(pI2Cx, I2C_ARLO_FLAG))
+            return STATUS_ERROR;
+
+        if (I2C_GetFlag(pI2Cx, I2C_BERR_FLAG))
+            return STATUS_ERROR;
+
+        if (I2C_GetFlag(pI2Cx, I2C_AF_FLAG))
+            return STATUS_NACK;
+
+        if (I2C_GetFlag(pI2Cx, I2C_OVR_FLAG))
+            return STATUS_ERROR;
+
+        if (I2C_GetFlag(pI2Cx, I2C_PECERR_FLAG))
+            return STATUS_ERROR;
+
+        // check desired flag
+        if (I2C_GetFlag(pI2Cx, flag) == val)
+            return STATUS_OK;
+
+        // check timeout
         if (timeout == 0U) return STATUS_TIMEOUT;
         timeout--;
     }
@@ -434,9 +518,6 @@ status_t I2C_PeriClkCtl(I2C_reg_t *pI2Cx, uint8_t enable)
  * @fn		I2C_Init
  *
  * @brief	Configures an I2C pin according to I2C_config_t struct
- *
- * @details
- * TODO
  *
  * @param[in] pI2CHandle	I2C handle for the peripheral to be initialized.
  *
@@ -566,7 +647,7 @@ status_t I2C_Reset(I2C_reg_t *pI2Cx)
     if      (pI2Cx == I2C1) I2C1_RESET();
     else if (pI2Cx == I2C2) I2C2_RESET();
     else if (pI2Cx == I2C3) I2C3_RESET();
-    else                    return STATUS_INVALID_PARAM;
+    else return STATUS_INVALID_PARAM;
         
     return STATUS_OK;
 }
@@ -576,10 +657,8 @@ status_t I2C_Reset(I2C_reg_t *pI2Cx)
  *
  * @brief	Sends data as master using I2C protocol.
  *
- * @details
- * TODO
  *
- * @param[in] pI2CHandle    TODO
+ * @param[in] pI2CHandle    Handle for a I2C peripheral.
  * @param[in] pTxBuffer		Pointer to data-buffer to be transfered.
  * @param[in] len		    Number of bytes to transfer.
  * @param[in] slaveAddr		Target slave address to transfer to.
@@ -587,7 +666,9 @@ status_t I2C_Reset(I2C_reg_t *pI2Cx)
  * @return	Status indicating whether the command was successful (STATUS_OK)
  *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
  *
- * @note	TODO
+ * @note	If this API returns STATUS_TIMEOUT, that means an unrecoverable
+ *          error occured and the peripheral had to be reset and
+ *          reinitialized.
  ***************************************************************************/
 status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
                             uint32_t len, uint8_t slaveAddr)
@@ -615,17 +696,29 @@ status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
     // wait for SB flag to be set
     status_t status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_SB_FLAG, SET);
     if (status != STATUS_OK)
+    {
+        if (status == STATUS_TIMEOUT)
+        {
+            I2C_SoftwareReset(pI2CHandle->pI2Cx);
+            I2C_Init(pI2CHandle);
+        }
+        else
+        {
+            I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+        }
+        
         return status;
-
+    }
+        
     // ========= Send Address and R/W Bit =========
     I2C_ExecuteAddrPhase(pI2CHandle->pI2Cx, slaveAddr, I2C_WRITE); // writes DR
 
     // ========= Confirm Address Phase Completion =========
-    I2C_flag_t errFlag = I2C_NOERR_FLAG;
-    status = I2C_WaitForFlagErr(pI2CHandle->pI2Cx, I2C_ADDR_FLAG, SET, &errFlag);
+    status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_ADDR_FLAG, SET);
     if (status != STATUS_OK)
     {
-        return I2C_MasterErrHandling(pI2CHandle->pI2Cx, status, errFlag);
+        I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+        return status;
     }
 
     // ========= Clear ADDR =========
@@ -634,11 +727,11 @@ status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
     // ========= Send Data =========
     while(len > 0)
     {
-        errFlag = I2C_NOERR_FLAG;
-        status = I2C_WaitForFlagErr(pI2CHandle->pI2Cx, I2C_TxE_FLAG, SET, &errFlag); // wait until Tx buffer is empty
+        status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_TxE_FLAG, SET); // wait until Tx buffer is empty
         if (status != STATUS_OK)
             {
-                return I2C_MasterErrHandling(pI2CHandle->pI2Cx, status, errFlag);
+                I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+                return status;
             }
         
         pI2CHandle->pI2Cx->DR = *pTxBuffer;
@@ -647,14 +740,274 @@ status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
     }
 
     // ========= Close Transmission =========
-    errFlag = I2C_NOERR_FLAG;
-    status = I2C_WaitForFlagErr(pI2CHandle->pI2Cx, I2C_BTF_FLAG, SET, &errFlag); // wait until byte-transfer complete
+    status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_BTF_FLAG, SET); // wait until byte-transfer complete
     if (status != STATUS_OK)
     {
-        return I2C_MasterErrHandling(pI2CHandle->pI2Cx, status, errFlag);
+        I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+        return status;
     }
 
     // ========= Request Stop Condition =========
     I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		I2C_MasterReceiveData
+ *
+ * @brief	Receives data from slave as an I2C master.
+ *
+ * @details
+ * This API receives data from an I2C-slave, while acting as an I2C-
+ * master. It correctly separates the logic for sending 1-byte, 2-
+ * bytes, and >2 bytes according to the reference manual.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ * @param[in] pRxBuffer		Pointer to Rx buffer.
+ * @param[in] len		    Length of bytes to receive.
+ * @param[in] slaveAddr		Address of slave to receive data from.
+ *
+ * @return	STATUS_OK: Communication was performed sucessfully.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed to the API.
+ *          STATUS_NACK: The slave did not ACK.
+ *          STATUS_ERROR: An error occured that did not require a reset.
+ *          STATUS_TIMEOUT: A critical error occured and the peripheral
+ *                          had to be reset and reinitialized.
+ *          STATUS_BUSY: A start/stop was pending, or the bus is occupied.
+ *
+ * @note	This API resets and reinitializes the peripheral whenever a
+ *          STATUS_TIMEOUT is returned.
+ ***************************************************************************/
+status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
+    uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr)
+{
+    // ========== Validate Inputs ==========
+    if (!pI2CHandle || !pI2CHandle->pI2Cx)
+        return STATUS_INVALID_PARAM;
+
+    if (!I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    if (!pRxBuffer)
+        return STATUS_INVALID_PARAM;
+
+    if (slaveAddr > 0x7FU)
+        return STATUS_INVALID_PARAM;
+
+    if (len < 1U)
+        return STATUS_INVALID_PARAM;
+
+    // ========== Validate Peripheral State ==========
+    // if peripheral is disabled
+    if ( (pI2CHandle->pI2Cx->CR1 & (1U << I2C_CR1_PE_BIT)) == 0U )
+        return STATUS_ERROR;
+
+    // if start/stop is already pending
+    if ( (pI2CHandle->pI2Cx->CR1 & ((1U << I2C_CR1_STOP_BIT) | (1U << I2C_CR1_START_BIT))) ||
+        (pI2CHandle->pI2Cx->SR2 & (1U << I2C_SR2_BUSY_BIT)))
+        return STATUS_BUSY;
+
+    // ========== Enable ACKing ==========
+    pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_ACK_BIT);
+
+    // ========== Clear POS ==========
+    pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_POS_BIT);
+
+
+    // initial ACK configuration must be restored after this point.
+
+
+    // ========= Request Start Condition =========
+    I2C_RequestStartCondition(pI2CHandle->pI2Cx);
+
+    // ========= Confirm Start Condition =========
+    // wait for SB flag to be set
+    status_t status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_SB_FLAG, SET);
+    if (status != STATUS_OK)
+    {
+        if (status == STATUS_TIMEOUT)
+        {
+            I2C_SoftwareReset(pI2CHandle->pI2Cx);
+            I2C_Init(pI2CHandle);
+        }
+        else
+        {
+            I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+            I2C_RestoreACK(pI2CHandle);
+        }
+        
+        return status;
+    }
+
+
+    // acquired ownership of bus at this point
+        
+
+    // ========= Send Address and R/W Bit =========
+    I2C_ExecuteAddrPhase(pI2CHandle->pI2Cx, slaveAddr, I2C_READ); // writes DR
+
+    // ========= Confirm Address Phase Completion =========
+    status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_ADDR_FLAG, SET);
+    if (status != STATUS_OK)
+    {
+        I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+        if (I2C_RestoreACK(pI2CHandle) == STATUS_TIMEOUT)
+        {
+            I2C_SoftwareReset(pI2CHandle->pI2Cx);
+            I2C_Init(pI2CHandle);
+            return STATUS_TIMEOUT;
+        }
+        return status;
+    }
+
+    // ================== Receive Data ==================
+    if (len == 1U)
+    {
+        // Disable ACKing
+        I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
+
+        // Clear ADDR flag
+        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+
+        // Request stop
+        I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+
+        // Wait until data-ready
+        status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_RxNE_FLAG, SET);
+        if (status != STATUS_OK)
+        {
+            I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+            if (I2C_RestoreACK(pI2CHandle) == STATUS_TIMEOUT)
+            {
+                I2C_SoftwareReset(pI2CHandle->pI2Cx);
+                I2C_Init(pI2CHandle);
+                return STATUS_TIMEOUT;
+            }
+            
+            return status;
+        }
+
+        // Read data into buffer
+        *pRxBuffer = pI2CHandle->pI2Cx->DR;
+    }
+    else if (len == 2U)
+    {
+        // Assert POS
+        pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_POS_BIT);
+
+        // Disable ACKing
+        I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
+
+        // Clear ADDR flag
+        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+
+        // Wait for BTF
+        status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_BTF_FLAG, SET);
+        if (status != STATUS_OK)
+        {
+            I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+            if (I2C_RestoreACK(pI2CHandle) == STATUS_TIMEOUT)
+            {
+                I2C_SoftwareReset(pI2CHandle->pI2Cx);
+                I2C_Init(pI2CHandle);
+                return STATUS_TIMEOUT;
+            }
+            return status;
+        }
+
+        // Request stop
+        I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+
+        // Read both bytes
+        *pRxBuffer = pI2CHandle->pI2Cx->DR;
+
+        pRxBuffer++;
+
+        *pRxBuffer = pI2CHandle->pI2Cx->DR;
+    }
+    else // len > 2
+    {
+        // Clear ADDR flag
+        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+
+        for (uint32_t i = len; i>0; i--)
+        {
+            // Wait until data-ready
+            status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_RxNE_FLAG, SET);
+            if (status != STATUS_OK)
+            {
+                I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+                if (I2C_RestoreACK(pI2CHandle) == STATUS_TIMEOUT)
+                {
+                    I2C_SoftwareReset(pI2CHandle->pI2Cx);
+                    I2C_Init(pI2CHandle);
+                    return STATUS_TIMEOUT;
+                }
+                return status;
+            }
+
+            if (i == 3U) // if only 3-bytes remaining
+            {
+                // Wait for BTF
+                status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_BTF_FLAG, SET);
+                if (status != STATUS_OK)
+                {
+                    I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+                    if (I2C_RestoreACK(pI2CHandle) == STATUS_TIMEOUT)
+                    {
+                        I2C_SoftwareReset(pI2CHandle->pI2Cx);
+                        I2C_Init(pI2CHandle);
+                        return STATUS_TIMEOUT;
+                    }
+                    return status;
+                }
+                
+                // Disable ACKing
+                I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
+
+                // Read data into buffer
+                *pRxBuffer = pI2CHandle->pI2Cx->DR;
+                pRxBuffer++;
+
+                // Wait for BTF
+                status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_BTF_FLAG, SET);
+                if (status != STATUS_OK)
+                {
+                    I2C_MasterErrHandling(pI2CHandle->pI2Cx);
+                    if (I2C_RestoreACK(pI2CHandle) == STATUS_TIMEOUT)
+                    {
+                        I2C_SoftwareReset(pI2CHandle->pI2Cx);
+                        I2C_Init(pI2CHandle);
+                        return STATUS_TIMEOUT;
+                    }
+                    return status;
+                }
+
+                // Request stop
+                I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+
+                // Read final two bytes
+                *pRxBuffer = pI2CHandle->pI2Cx->DR;
+
+                pRxBuffer++;
+
+                *pRxBuffer = pI2CHandle->pI2Cx->DR;
+
+                break;
+            }
+            
+            // Read data into buffer
+            *pRxBuffer = pI2CHandle->pI2Cx->DR;
+            pRxBuffer++;
+        }
+    }
+    
+    if (I2C_RestoreACK(pI2CHandle) == STATUS_TIMEOUT)
+    {
+        I2C_SoftwareReset(pI2CHandle->pI2Cx);
+        I2C_Init(pI2CHandle);
+        return STATUS_TIMEOUT;
+    }
+
     return STATUS_OK;
 }
