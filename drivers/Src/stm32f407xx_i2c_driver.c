@@ -662,6 +662,8 @@ status_t I2C_Reset(I2C_reg_t *pI2Cx)
  * @param[in] pTxBuffer		Pointer to data-buffer to be transfered.
  * @param[in] len		    Number of bytes to transfer.
  * @param[in] slaveAddr		Target slave address to transfer to.
+ * @param[in] SR		    Boolean indicating whether to send stop-
+ *                          condition (I2C_SR_DI) or not (I2C_SR_EN).
  *
  * @return	Status indicating whether the command was successful (STATUS_OK)
  *			or not (STATUS_ERROR / STATUS_INVALID_PARAM).
@@ -671,7 +673,7 @@ status_t I2C_Reset(I2C_reg_t *pI2Cx)
  *          reinitialized.
  ***************************************************************************/
 status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
-                            uint32_t len, uint8_t slaveAddr)
+                            uint32_t len, uint8_t slaveAddr, uint8_t SR)
 {
     // ========== Validate Inputs ==========
     if (!pI2CHandle || !pI2CHandle->pI2Cx)
@@ -748,7 +750,9 @@ status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
     }
 
     // ========= Request Stop Condition =========
-    I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+    if (SR == I2C_SR_DI)
+        I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+
     return STATUS_OK;
 }
 
@@ -766,6 +770,8 @@ status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
  * @param[in] pRxBuffer		Pointer to Rx buffer.
  * @param[in] len		    Length of bytes to receive.
  * @param[in] slaveAddr		Address of slave to receive data from.
+ * @param[in] SR		    Boolean indicating whether to send stop-
+ *                          condition (I2C_SR_DI) or not (I2C_SR_EN).
  *
  * @return	STATUS_OK: Communication was performed sucessfully.
  *          STATUS_INVALID_PARAM: An invalid argument was passed to the API.
@@ -779,7 +785,7 @@ status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle, uint8_t *pTxBuffer,
  *          STATUS_TIMEOUT is returned.
  ***************************************************************************/
 status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
-    uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr)
+    uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr, uint8_t SR)
 {
     // ========== Validate Inputs ==========
     if (!pI2CHandle || !pI2CHandle->pI2Cx)
@@ -803,8 +809,7 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
         return STATUS_ERROR;
 
     // if start/stop is already pending
-    if ( (pI2CHandle->pI2Cx->CR1 & ((1U << I2C_CR1_STOP_BIT) | (1U << I2C_CR1_START_BIT))) ||
-        (pI2CHandle->pI2Cx->SR2 & (1U << I2C_SR2_BUSY_BIT)))
+    if ( (pI2CHandle->pI2Cx->CR1 & ((1U << I2C_CR1_STOP_BIT) | (1U << I2C_CR1_START_BIT))) )
         return STATUS_BUSY;
 
     // ========== Enable ACKing ==========
@@ -870,7 +875,8 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
         I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
 
         // Request stop
-        I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+        if (SR == I2C_SR_DI)
+            I2C_RequestStopCondition(pI2CHandle->pI2Cx);
 
         // Wait until data-ready
         status = I2C_WaitForFlag(pI2CHandle->pI2Cx, I2C_RxNE_FLAG, SET);
@@ -916,7 +922,8 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
         }
 
         // Request stop
-        I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+        if (SR == I2C_SR_DI)
+            I2C_RequestStopCondition(pI2CHandle->pI2Cx);
 
         // Read both bytes
         *pRxBuffer = pI2CHandle->pI2Cx->DR;
@@ -984,7 +991,8 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
                 }
 
                 // Request stop
-                I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+                if (SR == I2C_SR_DI)
+                    I2C_RequestStopCondition(pI2CHandle->pI2Cx);
 
                 // Read final two bytes
                 *pRxBuffer = pI2CHandle->pI2Cx->DR;

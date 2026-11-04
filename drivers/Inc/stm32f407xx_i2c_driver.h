@@ -10,10 +10,14 @@
 
 #include "stm32f407xx.h"
 
-#define I2C_TIMEOUT 1000000U // Number of iterations to wait for I2C flag
+#define I2C_TIMEOUT 100000U // Number of iterations to wait for I2C flag
 
 #define I2C_TRISE_MAX_SM 1000U  // in nanoseconds
 #define I2C_TRISE_MAX_FM 300U   // in nanoseconds
+
+// ====================== Repeated-Start Macros ======================
+#define I2C_SR_EN   ENABLE
+#define I2C_SR_DI   DISABLE
 
 // ====================== I2C flags enum =============================
 typedef enum
@@ -102,9 +106,12 @@ status_t I2C_Init(I2C_handle_t *pI2CHandle);						// Configures an I2C pin accor
 status_t I2C_Reset(I2C_reg_t *pI2Cx);								// Resets a I2C peripheral to default register values
 
 status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle,               
-    uint8_t *pTxBuffer, uint32_t len, uint8_t slaveAddr);           // Sends data to slave as master.
+    uint8_t *pTxBuffer, uint32_t len, uint8_t slaveAddr,
+    uint8_t SR);                                                    // Sends data to slave as master.
+
 status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
-    uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr);           // Receives data from slave as master.
+    uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
+    uint8_t SR);                                                    // Receives data from slave as master.
 
 status_t I2C_PeriClkCtl(I2C_reg_t *pI2Cx, uint8_t enable);          // Enables/disables the clock for a given I2C base addr
 

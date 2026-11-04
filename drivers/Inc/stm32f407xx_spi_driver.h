@@ -10,7 +10,7 @@
 
 #include "stm32f407xx.h"
 
-#define SPI_TIMEOUT         1000000U     // Number of iterations to wait for SPI flag
+#define SPI_TIMEOUT         100000U     // Number of iterations to wait for SPI flag
 
 // ====================== SPI state macros =====================
 #define SPI_READY           0U

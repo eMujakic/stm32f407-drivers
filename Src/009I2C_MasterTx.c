@@ -136,8 +136,8 @@ int main(void)
     while(1)
     {
         wait_for_press();
-        status = I2C_MasterSendData(&i2c1, TxBuf, sizeof(TxBuf)-1U, ARDUINO_ADDR);
-        printf("MasterSendData Status: %d", status);
+        status = I2C_MasterSendData(&i2c1, TxBuf, sizeof(TxBuf)-1U, ARDUINO_ADDR, I2C_SR_DI);
+        printf("MasterSendData Status: %d\n", status);
     }
 
     return 0;
