@@ -15,6 +15,11 @@
 #define I2C_TRISE_MAX_SM 1000U  // in nanoseconds
 #define I2C_TRISE_MAX_FM 300U   // in nanoseconds
 
+// ====================== I2C State Macros ======================
+#define I2C_READY       0U
+#define I2C_BUSY_IN_RX  1U
+#define I2C_BUSY_IN_TX  2U
+
 // ====================== Repeated-Start Macros ======================
 #define I2C_SR_EN   ENABLE
 #define I2C_SR_DI   DISABLE
@@ -94,6 +99,16 @@ typedef struct
 {
     I2C_reg_t       *pI2Cx;
     I2C_config_t    I2C_Config;
+
+    // Interrupt state
+    uint8_t         *pTxBuffer;
+    uint8_t         *pRxBuffer;
+    uint32_t        TxLen;
+    uint32_t        RxLen;
+    uint8_t         TxRxState;  // stores communication state
+    uint8_t         targetAddr; // TODO address of target device to communicate with
+    uint32_t        RxSize;     // TODO
+    uint8_t         Sr;         // stores repeated start value
 } I2C_handle_t;
 
 /*********************************************************************************
@@ -122,6 +137,17 @@ status_t I2C_SoftwareReset(I2C_reg_t *pI2Cx);                       // Performs 
 uint8_t  I2C_GetFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag);            // Returns value of SR1/SR2 at flag position
 status_t I2C_WaitForFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag,         // Spins until flag==val or timeout occurs
     uint8_t val);
+
+
+// Interrupt APIs
+
+status_t I2C_MasterSendDataIT(I2C_handle_t *pI2CHandle,               
+    uint8_t *pTxBuffer, uint32_t len, uint8_t slaveAddr,
+    uint8_t SR);                                                    // Sends data to slave as master (non-blocking)
+
+status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
+    uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
+    uint8_t SR);                                                    // Receives data from slave as master (non-blocking)
 
 void I2C_ApplicationEventCallback(I2C_handle_t *pHandle,
                                   I2C_event_t event);               // Weakly implemented, called by private driver interrupt handlers

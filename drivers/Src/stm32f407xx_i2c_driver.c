@@ -1019,3 +1019,136 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
 
     return STATUS_OK;
 }
+
+// ***************************************************************
+// **************** INTERRUPT API IMPLEMENTATIONS ****************
+// ***************************************************************
+
+/**************************************************************************
+ * @fn		I2C_MasterSendDataIT
+ *
+ * @brief	Saves interrupt state for Tx, requests start, and enables
+ *          interrupts.
+ *
+ * @param[in] pI2CHandle    Handle for a I2C peripheral.
+ * @param[in] pTxBuffer		Pointer to data-buffer to be transfered.
+ * @param[in] len		    Number of bytes to transfer.
+ * @param[in] slaveAddr		Target slave address to transfer to.
+ * @param[in] SR		    Boolean indicating whether to send stop-
+ *                          condition (I2C_SR_DI) or not (I2C_SR_EN).
+ *
+ * @return	STATUS_OK: Interrupt state was successfully saved in 
+ *          handle,start condition was requested and interrupts enabled.
+ *			STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_BUSY: The passed I2C peripheral is busy.
+ *
+ * @note	This API does not transmit any actual data. It only saves
+ *          the necessary state in the handle, enables interrupts, and
+ *          requests a start condition.
+ *
+ * @note    This API enables all three interrupt flags in the CR2
+ *          register (ITBUFEN, ITEVTEN, ITERREN).
+ ***************************************************************************/
+status_t I2C_MasterSendDataIT(I2C_handle_t *pI2CHandle,               
+    uint8_t *pTxBuffer, uint32_t len, uint8_t slaveAddr,
+    uint8_t SR)
+{
+    // Validate pointers
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // ensure peripheral is free
+    if (pI2CHandle->TxRxState != I2C_READY)
+        return STATUS_BUSY;
+
+    // validate inputs
+    if (!pTxBuffer || len < 1U)
+        return STATUS_INVALID_PARAM;
+
+    if (slaveAddr > 0x7FU || SR > 1U)
+        return STATUS_INVALID_PARAM;
+
+    // Update interrupt state in handle
+    pI2CHandle->pTxBuffer   = pTxBuffer;
+    pI2CHandle->TxLen       = len;
+    pI2CHandle->TxRxState   = I2C_BUSY_IN_TX;
+    pI2CHandle->targetAddr  = slaveAddr;
+    pI2CHandle->Sr          = SR;
+
+    // Request start condition
+    I2C_RequestStartCondition(pI2CHandle->pI2Cx);
+
+    // Enable interrupts
+    pI2CHandle->pI2Cx->CR2 |= 
+        (1U << I2C_CR2_ITEVTEN_BIT) |
+        (1U << I2C_CR2_ITERREN_BIT) |
+        (1U << I2C_CR2_ITBUFEN_BIT);
+
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		I2C_MasterReceiveDataIT
+ *
+ * @brief	Saves interrupt state for Rx, requests start, and enables
+ *          interrupts.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ * @param[in] pRxBuffer		Pointer to Rx buffer.
+ * @param[in] len		    Length of bytes to receive.
+ * @param[in] slaveAddr		Address of slave to receive data from.
+ * @param[in] SR		    Boolean indicating whether to send stop-
+ *                          condition (I2C_SR_DI) or not (I2C_SR_EN).
+ *
+ * @return	STATUS_OK: Interrupt state was successfully saved in 
+ *          handle, start condition was requested, and interrupts enabled.
+ *			STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_BUSY: The passed I2C peripheral is busy.
+ *
+ * @note	This API does not receive any actual data. It only saves
+ *          the necessary state in the handle, enables interrupts, and
+ *          requests a start condition.
+ *
+ * @note    This API enables all three interrupt flags in the CR2
+ *          register (ITBUFEN, ITEVTEN, ITERREN).
+ ***************************************************************************/
+status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
+    uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
+    uint8_t SR)
+{
+    // Validate pointers
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // ensure peripheral is free
+    if (pI2CHandle->TxRxState != I2C_READY)
+        return STATUS_BUSY;
+
+    // validate inputs
+    if (!pRxBuffer || len < 1U)
+        return STATUS_INVALID_PARAM;
+
+    if (slaveAddr > 0x7FU || SR > 1U)
+        return STATUS_INVALID_PARAM;
+
+    // Update interrupt state in handle
+    pI2CHandle->pRxBuffer   = pRxBuffer;
+    pI2CHandle->RxLen       = len;
+    pI2CHandle->TxRxState   = I2C_BUSY_IN_RX;
+    pI2CHandle->targetAddr  = slaveAddr;
+    pI2CHandle->RxSize      = len;
+    pI2CHandle->Sr          = SR;
+
+    // Request start condition
+    I2C_RequestStartCondition(pI2CHandle->pI2Cx);
+
+    // Enable interrupts
+    pI2CHandle->pI2Cx->CR2 |= 
+        (1U << I2C_CR2_ITEVTEN_BIT) |
+        (1U << I2C_CR2_ITERREN_BIT) |
+        (1U << I2C_CR2_ITBUFEN_BIT);
+
+    return STATUS_OK;
+}
