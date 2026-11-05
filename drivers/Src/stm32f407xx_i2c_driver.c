@@ -1220,11 +1220,39 @@ static void I2C_HandleSTOPF(I2C_handle_t *pI2CHandle)
     // TODO: Close transfer and notify user of STOP
 }
 
+/**************************************************************************
+ * @fn		I2C_HandleTxE
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
 static void I2C_HandleTxE(I2C_handle_t *pI2CHandle)
 {
+    if (pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    {
+        if (pI2CHandle->TxLen > 0U)
+        {
+            pI2CHandle->pI2Cx->DR = *pI2CHandle->pTxBuffer;
+            pI2CHandle->pTxBuffer++;
+            pI2CHandle->TxLen--;
+        }
 
+        if (pI2CHandle->TxLen == 0U)
+        {
+            // disable buffer interrupts so BTF can notify user if in master mode
+            // if in slave-mode, transaction is completed in AF/STOPF handlers
+            pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+        }
+    }
 }
-
 static void I2C_HandleRxNE(I2C_handle_t *pI2CHandle)
 {
 
