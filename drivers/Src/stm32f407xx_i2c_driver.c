@@ -1024,6 +1024,20 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
 // ********************** INTERRUPT HELPERS **********************
 // ***************************************************************
 
+/**************************************************************************
+ * @fn		I2C_HandleSB
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
 static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
 {
     // execute address phase
@@ -1036,6 +1050,79 @@ static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
         return; // invalid state
 
     I2C_ExecuteAddrPhase(pI2CHandle->pI2Cx, pI2CHandle->targetAddr, rw);
+}
+
+/**************************************************************************
+ * @fn		I2C_HandleADDR
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
+static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
+{
+    // if master-in-Tx
+    if ( pI2CHandle->mode == I2C_MODE_MASTER &&
+        pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
+    {
+        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+        return;
+    }
+    
+    // if master-in-Rx
+    if (pI2CHandle->mode == I2C_MODE_MASTER &&
+        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        if(pI2CHandle->RxSize == 1U)
+        {
+            // Disable ACKing
+            I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
+
+            // Clear ADDR flag
+            I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+
+            // Request stop
+            if (pI2CHandle->Sr == I2C_SR_DI)
+                I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+        }
+        else if (pI2CHandle->RxSize == 2U)
+        {
+            // Assert POS
+            pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_POS_BIT);
+
+            // Disable ACKing
+            I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
+
+            // Clear ADDR flag
+            I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+        }
+        else // (RxSize > 2)
+        {
+            I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+        }
+        return;
+    }
+
+    if (pI2CHandle->mode == I2C_MODE_SLAVE)
+    {
+        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+        uint32_t TRA = (pI2CHandle->pI2Cx->SR2 >> I2C_SR2_TRA_BIT) &0x1U;
+
+        if (TRA)
+            pI2CHandle->TxRxState = I2C_BUSY_IN_TX;
+        else
+            pI2CHandle->TxRxState = I2C_BUSY_IN_RX;
+
+        // TODO: initialize Rx/Tx buffers and lengths
+        // will likely need a call to I2C_ApplicationEventCallback()
+    }
 }
 
 // ***************************************************************
