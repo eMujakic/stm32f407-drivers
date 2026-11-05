@@ -1253,9 +1253,68 @@ static void I2C_HandleTxE(I2C_handle_t *pI2CHandle)
         }
     }
 }
+
+/**************************************************************************
+ * @fn		I2C_HandleRxNE
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
 static void I2C_HandleRxNE(I2C_handle_t *pI2CHandle)
 {
+    // if master-in-rx
+    if (pI2CHandle->mode == I2C_MODE_MASTER &&
+        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        // one-byte transfer
+        if (pI2CHandle->RxLen == 1U &&
+            pI2CHandle->RxSize == 1U)
+        {
+            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->pRxBuffer++;
+            pI2CHandle->RxLen--;
 
+            // TODO: Close transfer and notify user
+            return;
+        }
+        else if (pI2CHandle->RxLen > 3U)
+        {
+            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->pRxBuffer++;
+            pI2CHandle->RxLen--;
+        }
+
+        if (pI2CHandle->RxLen == 3U)
+        {
+            // disable buffer interrupts to handle final 3 bytes with BTF handler
+            pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+        }
+    }
+    // if slave-in-rx
+    else if (pI2CHandle->mode == I2C_MODE_SLAVE &&
+        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        if(pI2CHandle->RxLen > 0U)
+        {
+            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->pRxBuffer++;
+            pI2CHandle->RxLen--;
+        }
+        else
+        {
+            // TODO: record buffer overflow
+            (void)pI2CHandle->pI2Cx->DR;
+            return;
+        }
+    }
 }
 
 // ***************************************************************
