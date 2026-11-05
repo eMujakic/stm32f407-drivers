@@ -1125,6 +1125,79 @@ static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
     }
 }
 
+/**************************************************************************
+ * @fn		TODO
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	This helper simply returns if the peripheral is a slave,
+ *          since BTF flags can be handled by either reading the DR
+ *          register in Rx mode (RxNE handler), or writing the DR if
+ *          in Tx mode (TxE handler).
+ *
+ * @note    This helper also returns if the peripheral is a master-in
+ *          Rx and RxLen>3, since that case is also handled by the
+ *          RxNE handler, not BTF.
+ ***************************************************************************/
+static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
+{
+    // if master-in-tx
+    if (pI2CHandle->mode == I2C_MODE_MASTER &&
+        pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    {
+        if (pI2CHandle->TxLen == 0U)
+        {
+            // request stop
+            if (pI2CHandle->Sr == I2C_SR_DI)
+                I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+            
+            // TODO: Close transfer and notify completion
+        }
+        return;
+    }
+
+    // if master-in-rx
+    if (pI2CHandle->mode == I2C_MODE_MASTER &&
+        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        // 2-bytes left
+        if (pI2CHandle->RxLen == 2U)
+        {
+            // Request stop
+            if (pI2CHandle->Sr == I2C_SR_DI)
+                I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+
+            // Read both bytes
+            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->RxLen--;
+            pI2CHandle->pRxBuffer++;
+            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->RxLen--;
+            pI2CHandle->pRxBuffer++;
+
+            // TODO: Close transfer and notify completion
+        }
+        // 3-bytes remaining
+        else if (pI2CHandle->RxLen == 3U)
+        {
+            // Disable ACKing
+            I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
+
+            // Read data into buffer
+            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->pRxBuffer++;
+            pI2CHandle->RxLen--;
+        }
+    }
+}
+
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
 // ***************************************************************
