@@ -1126,7 +1126,7 @@ static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		TODO
+ * @fn		I2C_HandleBTF
  *
  * @brief	TODO
  *
@@ -1196,6 +1196,38 @@ static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
             pI2CHandle->RxLen--;
         }
     }
+}
+
+/**************************************************************************
+ * @fn		I2C_HandleSTOPF
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
+static void I2C_HandleSTOPF(I2C_handle_t *pI2CHandle)
+{
+    (void) pI2CHandle->pI2Cx->SR1;
+    pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_PE_BIT);
+
+    // TODO: Close transfer and notify user of STOP
+}
+
+static void I2C_HandleTxE(I2C_handle_t *pI2CHandle)
+{
+
+}
+
+static void I2C_HandleRxNE(I2C_handle_t *pI2CHandle)
+{
+
 }
 
 // ***************************************************************
