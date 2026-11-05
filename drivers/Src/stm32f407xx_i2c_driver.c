@@ -1021,6 +1021,24 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
 }
 
 // ***************************************************************
+// ********************** INTERRUPT HELPERS **********************
+// ***************************************************************
+
+static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
+{
+    // execute address phase
+    I2C_rw_t rw;
+    if( pI2CHandle->TxRxState == I2C_BUSY_IN_RX )
+        rw = I2C_READ;
+    else if( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
+        rw = I2C_WRITE;
+    else
+        return; // invalid state
+
+    I2C_ExecuteAddrPhase(pI2CHandle->pI2Cx, pI2CHandle->targetAddr, rw);
+}
+
+// ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
 // ***************************************************************
 
@@ -1058,7 +1076,7 @@ status_t I2C_MasterSendDataIT(I2C_handle_t *pI2CHandle,
         !I2C_IsValidInstance(pI2CHandle->pI2Cx))
         return STATUS_INVALID_PARAM;
 
-    // ensure peripheral is free
+    // ensure handle is free
     if (pI2CHandle->TxRxState != I2C_READY)
         return STATUS_BUSY;
 
@@ -1075,6 +1093,7 @@ status_t I2C_MasterSendDataIT(I2C_handle_t *pI2CHandle,
     pI2CHandle->TxRxState   = I2C_BUSY_IN_TX;
     pI2CHandle->targetAddr  = slaveAddr;
     pI2CHandle->Sr          = SR;
+    pI2CHandle->mode        = I2C_MODE_MASTER;
 
     // Request start condition
     I2C_RequestStartCondition(pI2CHandle->pI2Cx);
@@ -1122,7 +1141,7 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
         !I2C_IsValidInstance(pI2CHandle->pI2Cx))
         return STATUS_INVALID_PARAM;
 
-    // ensure peripheral is free
+    // ensure handle is free
     if (pI2CHandle->TxRxState != I2C_READY)
         return STATUS_BUSY;
 
@@ -1140,15 +1159,27 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
     pI2CHandle->targetAddr  = slaveAddr;
     pI2CHandle->RxSize      = len;
     pI2CHandle->Sr          = SR;
+    pI2CHandle->mode        = I2C_MODE_MASTER;
+
+    // Enable ACKing
+    pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_ACK_BIT);
+
+    // Clear POS
+    pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_POS_BIT);
 
     // Request start condition
     I2C_RequestStartCondition(pI2CHandle->pI2Cx);
 
+    // conditional bit-mask. 1 byte uses RxNE, two/three bytes wait for BTF
+    uint32_t mask = (1U << I2C_CR2_ITEVTEN_BIT) | (1U << I2C_CR2_ITERREN_BIT);
+    if (len == 1U || len > 3U)
+    {
+        mask |= (1U << I2C_CR2_ITBUFEN_BIT);
+    }
+
     // Enable interrupts
-    pI2CHandle->pI2Cx->CR2 |= 
-        (1U << I2C_CR2_ITEVTEN_BIT) |
-        (1U << I2C_CR2_ITERREN_BIT) |
-        (1U << I2C_CR2_ITBUFEN_BIT);
+    // first unconditionally clears ITBUFEN, and then sets it according to its value in mask
+    pI2CHandle->pI2Cx->CR2 = (pI2CHandle->pI2Cx->CR2 & ~(1U << I2C_CR2_ITBUFEN_BIT)) | mask;
 
     return STATUS_OK;
 }

@@ -4,3 +4,4 @@
 Debug/
 stm32f4xx_drivers Debug.launch
 .idea/
+.vscode/
