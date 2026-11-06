@@ -69,7 +69,12 @@ typedef enum
 // ====================== I2C application event enum =====================
 typedef enum
 {
-    I2C_EVENT_PLACEHOLDER = 0    // TODO
+    I2C_EVT_TX_DONE = 0U,
+    I2C_EVT_RX_DONE = 1U,
+    I2C_EVT_STOP    = 2U,
+    I2C_EVT_BERR    = 3U,
+    I2C_EVT_ARLO    = 4U,
+    I2C_EVT_NACK    = 5U
 } I2C_event_t;
 
 // ====================== I2C SCL-speed enum =============================

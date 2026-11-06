@@ -1021,8 +1021,39 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
 }
 
 // ***************************************************************
-// ********************** INTERRUPT HELPERS **********************
+// ******************* INTERRUPT EVENT HELPERS *******************
 // ***************************************************************
+
+static void I2C_CloseSendIT(I2C_handle_t *pI2CHandle)
+{
+    if (!pI2CHandle) return;
+}
+
+static void I2C_CloseMasterReceiveIT(I2C_handle_t *pI2CHandle)
+{
+    if (!pI2CHandle || !pI2CHandle->pI2Cx) return;
+
+    // Disable interrupts
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITEVTEN_BIT);
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITERREN_BIT);
+    
+    // Update handle
+    pI2CHandle->TxRxState = I2C_READY;
+    pI2CHandle->mode = I2C_MODE_NONE;
+    pI2CHandle->RxLen = 0U;
+    pI2CHandle->RxSize = 0U;
+    pI2CHandle->pRxBuffer = NULL;
+
+    // Restore ack
+    I2C_RestoreACK(pI2CHandle);
+    pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_POS_BIT);
+}
+
+static void I2C_CloseSlaveReceiveIT(I2C_handle_t *pI2CHandle)
+{
+    if (!pI2CHandle || !pI2CHandle->pI2Cx) return;
+}
 
 /**************************************************************************
  * @fn		I2C_HandleSB
@@ -1073,11 +1104,10 @@ static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
         pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
     {
         I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
-        return;
     }
     
     // if master-in-Rx
-    if (pI2CHandle->mode == I2C_MODE_MASTER &&
+    else if (pI2CHandle->mode == I2C_MODE_MASTER &&
         pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
     {
         if(pI2CHandle->RxSize == 1U)
@@ -1107,10 +1137,9 @@ static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
         {
             I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
         }
-        return;
     }
 
-    if (pI2CHandle->mode == I2C_MODE_SLAVE)
+    else if (pI2CHandle->mode == I2C_MODE_SLAVE)
     {
         I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
         uint32_t TRA = (pI2CHandle->pI2Cx->SR2 >> I2C_SR2_TRA_BIT) &0x1U;
@@ -1159,12 +1188,12 @@ static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
                 I2C_RequestStopCondition(pI2CHandle->pI2Cx);
             
             // TODO: Close transfer and notify completion
+            I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
         }
-        return;
     }
 
     // if master-in-rx
-    if (pI2CHandle->mode == I2C_MODE_MASTER &&
+    else if (pI2CHandle->mode == I2C_MODE_MASTER &&
         pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
     {
         // 2-bytes left
@@ -1183,6 +1212,7 @@ static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
             pI2CHandle->pRxBuffer++;
 
             // TODO: Close transfer and notify completion
+            I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
         }
         // 3-bytes remaining
         else if (pI2CHandle->RxLen == 3U)
@@ -1214,10 +1244,12 @@ static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
  ***************************************************************************/
 static void I2C_HandleSTOPF(I2C_handle_t *pI2CHandle)
 {
+    // Clear STOPF flag
     (void) pI2CHandle->pI2Cx->SR1;
     pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_PE_BIT);
 
     // TODO: Close transfer and notify user of STOP
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_STOP);
 }
 
 /**************************************************************************
@@ -1275,14 +1307,14 @@ static void I2C_HandleRxNE(I2C_handle_t *pI2CHandle)
         pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
     {
         // one-byte transfer
-        if (pI2CHandle->RxLen == 1U &&
-            pI2CHandle->RxSize == 1U)
+        if (pI2CHandle->RxSize == 1U)
         {
             *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
             pI2CHandle->pRxBuffer++;
             pI2CHandle->RxLen--;
 
             // TODO: Close transfer and notify user
+            I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
             return;
         }
         else if (pI2CHandle->RxLen > 3U)
@@ -1316,6 +1348,97 @@ static void I2C_HandleRxNE(I2C_handle_t *pI2CHandle)
         }
     }
 }
+
+// ***************************************************************
+// ******************* INTERRUPT ERROR HELPERS *******************
+// ***************************************************************
+
+static void I2C_HandleBERR(I2C_handle_t *pI2CHandle)
+{
+    // clear BERR
+    pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_BERR_BIT);
+
+    // disable further interrupts
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITEVTEN_BIT);
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITERREN_BIT);
+
+    // TODO: Notify application
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_BERR);
+}
+
+static void I2C_HandleARLO(I2C_handle_t *pI2CHandle)
+{
+    // clear ARLO
+    pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_ARLO_BIT);
+
+    pI2CHandle->mode = I2C_MODE_NONE;
+
+    // disable further interrupts
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITEVTEN_BIT);
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITERREN_BIT);
+    
+    // TODO: Notify application
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_ARLO);
+}
+
+static void I2C_HandleAF(I2C_handle_t *pI2CHandle)
+{
+    // if master
+    if (pI2CHandle->mode == I2C_MODE_MASTER)
+    {
+        // request stop
+        if (I2C_GetFlag(pI2CHandle->pI2Cx, I2C_MSL_FLAG))
+            I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+
+        // clear AF flag
+        pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
+
+        // TODO: close transfer and notify user
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_NACK);
+    }
+    
+    // if slave-in-tx
+    else if(pI2CHandle->mode == I2C_MODE_SLAVE &&
+            pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    {
+        // clear AF flag
+        pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
+
+        // TODO: Close transfer and notify completion
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
+    }
+
+    // force clear AF
+    else
+    {
+        pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
+    }
+}
+
+static void I2C_HandleOVR(I2C_handle_t *pI2CHandle)
+{
+
+}
+
+// static void I2C_HandlePECERR(I2C_handle_t *pI2CHandle)
+// {
+
+// }
+
+static void I2C_HandleTIMEOUT(I2C_handle_t *pI2CHandle)
+{
+    if (pI2CHandle->mode == I2C_MODE_MASTER)
+    {
+
+    }
+}
+
+// static void I2C_HandleSMBALERT(I2C_handle_t *pI2CHandle)
+// {
+
+// }
 
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
@@ -1508,6 +1631,10 @@ status_t I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
         I2C_HandleADDR(pI2CHandle);
     }
 
+    // Update handle mode field
+    pI2CHandle->mode =  I2C_GetFlag(pI2CHandle->pI2Cx, I2C_MSL_FLAG) ?
+                        I2C_MODE_MASTER : I2C_MODE_SLAVE;
+
     // update cached registers
     SR1 = pI2CHandle->pI2Cx->SR1;
     CR2 = pI2CHandle->pI2Cx->CR2;
@@ -1556,5 +1683,69 @@ status_t I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
         I2C_HandleSTOPF(pI2CHandle);
     }
     
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		I2C_IRQHandling_ERR
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
+status_t I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle)
+{
+    // Validate pointers
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // cache registers
+    uint32_t SR1 = pI2CHandle->pI2Cx->SR1;
+    uint32_t CR2 = pI2CHandle->pI2Cx->CR2;
+
+    // handle bus error
+    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
+        SR1 & (1U << I2C_SR1_BERR_BIT))
+    {
+        I2C_HandleBERR(pI2CHandle);
+        return STATUS_ERROR;
+    }
+
+    // handle arbitration error
+    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
+        SR1 & (1U << I2C_SR1_ARLO_BIT))
+    {
+        I2C_HandleARLO(pI2CHandle);
+    }
+
+    // handle NACK error
+    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
+        SR1 & (1U << I2C_SR1_AF_BIT))
+    {
+        I2C_HandleAF(pI2CHandle);
+    }
+
+    // handle over/under-run error
+    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
+        SR1 & (1U << I2C_SR1_OVR_BIT))
+    {
+        I2C_HandleOVR(pI2CHandle);
+    }
+
+    // handle timeout error
+    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
+        SR1 & (1U << I2C_SR1_TIMEOUT_BIT))
+    {
+        I2C_HandleTIMEOUT(pI2CHandle);
+    }
+
     return STATUS_OK;
 }
