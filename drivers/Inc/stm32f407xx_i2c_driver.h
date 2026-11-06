@@ -27,9 +27,8 @@
 // ====================== I2C Mode enum =====================
 typedef enum
 {
-    I2C_MODE_NONE   = 0U,
-    I2C_MODE_SLAVE  = 1U,
-    I2C_MODE_MASTER = 2U
+    I2C_MODE_SLAVE  = 0U,
+    I2C_MODE_MASTER = 1U
 } I2C_mode_t;
 
 // ====================== I2C flags enum =============================
@@ -69,12 +68,14 @@ typedef enum
 // ====================== I2C application event enum =====================
 typedef enum
 {
-    I2C_EVT_TX_DONE = 0U,
-    I2C_EVT_RX_DONE = 1U,
-    I2C_EVT_STOP    = 2U,
-    I2C_EVT_BERR    = 3U,
-    I2C_EVT_ARLO    = 4U,
-    I2C_EVT_NACK    = 5U
+    I2C_EVT_INVALID_STATE       = 0U,
+    I2C_EVT_TX_DONE             = 1U,
+    I2C_EVT_RX_DONE             = 2U,
+    I2C_EVT_STOP                = 3U,
+    I2C_EVT_BERR                = 4U,
+    I2C_EVT_ARLO                = 5U,
+    I2C_EVT_NACK                = 6U,
+    I2C_EVT_SLAVE_ADDR_MATCH    = 7U,
 } I2C_event_t;
 
 // ====================== I2C SCL-speed enum =============================
@@ -119,10 +120,10 @@ typedef struct
     uint32_t        TxLen;
     uint32_t        RxLen;
     uint8_t         TxRxState;  // stores communication state
-    uint8_t         targetAddr; // TODO address of target device to communicate with
+    uint8_t         targetAddr; // address of target device to communicate with
     uint32_t        RxSize;     // Initial length of Rx transfer
     uint8_t         Sr;         // stores repeated start value
-    I2C_mode_t      mode;        // None/Master/Slave
+    I2C_mode_t      mode;       // None/Master/Slave
 } I2C_handle_t;
 
 /*********************************************************************************
@@ -163,8 +164,8 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
     uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
     uint8_t SR);                                                    // Receives data from slave as master (non-blocking)
 
-status_t I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle);              // TODO
-status_t I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle);             // TODO
+status_t I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle);              // Dispatcher for event interrupts.
+status_t I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle);             // Dispatcher for error interrupts.
 
 void I2C_ApplicationEventCallback(I2C_handle_t *pHandle,
                                   I2C_event_t event);               // Weakly implemented, called by private driver interrupt handlers

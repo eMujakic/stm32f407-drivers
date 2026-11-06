@@ -255,6 +255,26 @@ static status_t I2C_RestoreACK(I2C_handle_t *pI2CHandle)
     return STATUS_OK;
 }
 
+/**************************************************************************
+ * @fn		I2C_DisableInterrupts
+ *
+ * @brief	Disables all interrupts for an I2C peripheral.
+ *
+ * @param[in] pI2Cx	    Pointer to I2C's base address.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_DisableInterrupts(I2C_reg_t *pI2Cx)
+{
+    if(!pI2Cx || !I2C_IsValidInstance(pI2Cx))
+        return;
+
+    pI2Cx->CR2  &= 
+        ~(  (1U << I2C_CR2_ITERREN_BIT) |
+            (1U << I2C_CR2_ITEVTEN_BIT) |
+            (1U << I2C_CR2_ITBUFEN_BIT));
+}
+
 // ***************************************************************
 // ********************* API IMPLEMENTATIONS *********************
 // ***************************************************************
@@ -1024,50 +1044,16 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
 // ******************* INTERRUPT EVENT HELPERS *******************
 // ***************************************************************
 
-static void I2C_CloseSendIT(I2C_handle_t *pI2CHandle)
-{
-    if (!pI2CHandle) return;
-}
-
-static void I2C_CloseMasterReceiveIT(I2C_handle_t *pI2CHandle)
-{
-    if (!pI2CHandle || !pI2CHandle->pI2Cx) return;
-
-    // Disable interrupts
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITEVTEN_BIT);
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITERREN_BIT);
-    
-    // Update handle
-    pI2CHandle->TxRxState = I2C_READY;
-    pI2CHandle->mode = I2C_MODE_NONE;
-    pI2CHandle->RxLen = 0U;
-    pI2CHandle->RxSize = 0U;
-    pI2CHandle->pRxBuffer = NULL;
-
-    // Restore ack
-    I2C_RestoreACK(pI2CHandle);
-    pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_POS_BIT);
-}
-
-static void I2C_CloseSlaveReceiveIT(I2C_handle_t *pI2CHandle)
-{
-    if (!pI2CHandle || !pI2CHandle->pI2Cx) return;
-}
-
 /**************************************************************************
  * @fn		I2C_HandleSB
  *
- * @brief	TODO
+ * @brief	Handles SB interrupts be executing the address phase.
  *
- * @details
- * TODO
- *
- * @param[in] TODO		TODO
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
  *
- * @note	TODO
+ * @note	SB flag can only be set if the peripheral is in master mode.
  ***************************************************************************/
 static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
 {
@@ -1077,8 +1063,13 @@ static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
         rw = I2C_READ;
     else if( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
         rw = I2C_WRITE;
+    // invalid state
     else
-        return; // invalid state
+    {
+        I2C_DisableInterrupts(pI2CHandle->pI2Cx);
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_INVALID_STATE);
+        return; 
+    }
 
     I2C_ExecuteAddrPhase(pI2CHandle->pI2Cx, pI2CHandle->targetAddr, rw);
 }
@@ -1086,16 +1077,23 @@ static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
 /**************************************************************************
  * @fn		I2C_HandleADDR
  *
- * @brief	TODO
+ * @brief	Handles ADDR interrupts for master and slave.
  *
  * @details
- * TODO
+ * In the case of a master-in-tx, the address flag is simply cleared and
+ * the handler returns.
  *
- * @param[in] TODO		TODO
+ * In the case of a master-in-rx, the correct protocol is dependant
+ * on the original message size.
+ *
+ * In the case of a slave, this is the handler which uses the address
+ * information from the master to determine whether its going to 
+ * receive or transmit. Therefore, this handler must update the
+ * necessary handler state to reflect this.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
- *
- * @note	TODO
  ***************************************************************************/
 static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
 {
@@ -1149,20 +1147,31 @@ static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
         else
             pI2CHandle->TxRxState = I2C_BUSY_IN_RX;
 
-        // TODO: initialize Rx/Tx buffers and lengths
-        // will likely need a call to I2C_ApplicationEventCallback()
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_SLAVE_ADDR_MATCH);
     }
 }
 
 /**************************************************************************
  * @fn		I2C_HandleBTF
  *
- * @brief	TODO
+ * @brief	Handles BTF interrupts for master.
  *
  * @details
- * TODO
+ * For a master-in-transmit, the BTF flag indicates that both the DR
+ * and the shift register is empty. If this occurs because the master
+ * has already transmitted all data, then BTF being set indicates that
+ * the transfer has complete sending the final byte to the slave. This
+ * handler handles such a case by requesting the stop condition and
+ * notifying the application.
+ * 
+ * For a master-in-receive, the proper sequence is dependant on the
+ * number of bytes left to receive. Single byte transfers are handled
+ * by the RxNE handler. Transfers with exactly two bytes are handled
+ * by this BTF handler. Once a tranfer has exactly three bytes
+ * remaining, it disables ACKing, reads one byte, and handles the
+ * final two bytes with this same BTF handler.
  *
- * @param[in] TODO		TODO
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
  *
@@ -1185,9 +1194,19 @@ static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
         {
             // request stop
             if (pI2CHandle->Sr == I2C_SR_DI)
+            {
                 I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+                pI2CHandle->mode = I2C_MODE_SLAVE;
+            }
             
-            // TODO: Close transfer and notify completion
+            // Close transfer and notify user
+
+            // disable interrupts
+            I2C_DisableInterrupts(pI2CHandle->pI2Cx);
+            
+            pI2CHandle->TxRxState = I2C_READY;
+            pI2CHandle->targetAddr = 0x00U;
+            
             I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
         }
     }
@@ -1201,7 +1220,10 @@ static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
         {
             // Request stop
             if (pI2CHandle->Sr == I2C_SR_DI)
+            {
                 I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+                pI2CHandle->mode = I2C_MODE_SLAVE;
+            }
 
             // Read both bytes
             *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
@@ -1211,7 +1233,17 @@ static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
             pI2CHandle->RxLen--;
             pI2CHandle->pRxBuffer++;
 
-            // TODO: Close transfer and notify completion
+            // Close transfer and notify user
+
+            // disable interrupts
+            I2C_DisableInterrupts(pI2CHandle->pI2Cx);
+            
+            pI2CHandle->TxRxState = I2C_READY;
+            pI2CHandle->targetAddr = 0x00U;
+
+            I2C_RestoreACK(pI2CHandle);
+            pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_POS_BIT);
+
             I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
         }
         // 3-bytes remaining
