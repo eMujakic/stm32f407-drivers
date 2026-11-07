@@ -1464,52 +1464,83 @@ static void I2C_HandleSTOPFSlave(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		I2C_HandleTxE
+ * @fn		I2C_HandleTxEMaster
  *
- * @brief	TODO
+ * @brief	Interrupt handler for master-TxE interrupts.
  *
  * @details
- * TODO
+ * For transmitting I2C peripherals, this handler
+ * simply writes the data buffer if pTxBuffer hasn't been exhausted.
  *
- * @param[in] TODO		TODO
+ * If the TxBuffer in the handle has been exhausted, this handler
+ * disables buffer interrupts. For masters, this means that no more
+ * TxE interrupts occur, and when the final byte is transfered, the
+ * master is notified by the BTF handler.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
- *
- * @note	TODO
  ***************************************************************************/
-static void I2C_HandleTxE(I2C_handle_t *pI2CHandle)
+static void I2C_HandleTxEMaster(I2C_handle_t *pI2CHandle)
 {
-    if (pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX)
     {
-        if (pI2CHandle->TxLen > 0U)
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }
+        
+    if (pI2CHandle->remaining > 0U)
         {
-            pI2CHandle->pI2Cx->DR = *pI2CHandle->pTxBuffer;
-            pI2CHandle->pTxBuffer++;
-            pI2CHandle->TxLen--;
+        pI2CHandle->pI2Cx->DR = *pI2CHandle->pBuffer;
+        pI2CHandle->pBuffer++;
+        pI2CHandle->remaining--;
         }
 
-        if (pI2CHandle->TxLen == 0U)
+    // master with empty tx-buffer
+    if (pI2CHandle->remaining == 0U)
         {
             // disable buffer interrupts so BTF can notify user if in master mode
-            // if in slave-mode, transaction is completed in AF/STOPF handlers
             pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
-        }
     }
 }
 
 /**************************************************************************
- * @fn		I2C_HandleRxNE
+ * @fn		I2C_HandleTxESlave
  *
- * @brief	TODO
+ * @brief	Interrupt handler for slave-TxE interrupts.
  *
  * @details
- * TODO
+ * For transmitting I2C peripherals, this handler
+ * simply writes the data buffer if pTxBuffer hasn't been exhausted.
  *
- * @param[in] TODO		TODO
+ * If the TxBuffer in the handle has been exhausted, this handler
+ * sends filler data (0xFF).
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
- *
- * @note	TODO
+ ***************************************************************************/
+static void I2C_HandleTxESlave(I2C_handle_t *pI2CHandle)
+{
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX)
+    {
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }
+
+    // slave with empty tx-buffer
+    if (pI2CHandle->remaining == 0U)
+    {
+        // send filler bytes
+        pI2CHandle->pI2Cx->DR = 0xFFU;
+    }
+    else
+    {
+        pI2CHandle->pI2Cx->DR = *pI2CHandle->pBuffer;
+        pI2CHandle->pBuffer++;
+        pI2CHandle->remaining--;
+    }
+}
  ***************************************************************************/
 static void I2C_HandleRxNE(I2C_handle_t *pI2CHandle)
 {
