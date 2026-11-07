@@ -1392,18 +1392,34 @@ static void I2C_HandleBTFMaster(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		I2C_HandleSTOPF
+ * @fn		I2C_HandleBTFSlave
  *
- * @brief	TODO
+ * @brief	Handles BTF interrupts for slaves.
  *
  * @details
- * TODO
+ * This handler simply dispatches to either the RxNE, or TxE
+ * slave handlers.
  *
- * @param[in] TODO		TODO
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
- *
- * @note	TODO
+ ***************************************************************************/
+static void I2C_HandleBTFSlave(I2C_handle_t *pI2CHandle)
+{
+    if (pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    {
+        I2C_HandleTxESlave(pI2CHandle);
+        return;
+    }
+    else if (pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        I2C_HandleRxNESlave(pI2CHandle);
+        return;
+    }
+    // invalid state
+    I2C_EnterRecoveryRequired(pI2CHandle);
+}
+
  ***************************************************************************/
 static void I2C_HandleSTOPF(I2C_handle_t *pI2CHandle)
 {
