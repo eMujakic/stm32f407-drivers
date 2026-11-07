@@ -1226,6 +1226,9 @@ static void I2C_HandleADDRMaster(I2C_handle_t *pI2CHandle)
             // Assert POS
             pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_POS_BIT);
 
+            // Disable buffer interrupts
+            pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+
             // Disable ACKing
             I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
 
@@ -1541,54 +1544,95 @@ static void I2C_HandleTxESlave(I2C_handle_t *pI2CHandle)
         pI2CHandle->remaining--;
     }
 }
- ***************************************************************************/
-static void I2C_HandleRxNE(I2C_handle_t *pI2CHandle)
-{
-    // if master-in-rx
-    if (pI2CHandle->mode == I2C_MODE_MASTER &&
-        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
-    {
-        // one-byte transfer
-        if (pI2CHandle->RxSize == 1U)
-        {
-            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
-            pI2CHandle->pRxBuffer++;
-            pI2CHandle->RxLen--;
 
-            // TODO: Close transfer and notify user
+/**************************************************************************
+ * @fn		I2C_HandleRxNEMaster
+ *
+ * @brief	Handler for RxNE interrupts for masters.
+ *
+ * @details
+ * For master-receivers, this handler performs different operations
+ * depending on the number of bytes left to receive. If there is exactly
+ * one byte left, it reads the byte from DR and notifies the application.
+ * If there is more than three bytes remaining, it reads the byte from the
+ * DR into the Rx buffer. If there is exactly three bytes remaining, it 
+ * disables buffer interrupts, since the BTF handler is responsible for
+ * handling the cases where there is exactly two or three bytes remaining.
+ * 
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_HandleRxNEMaster(I2C_handle_t *pI2CHandle)
+{
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_RX ||
+        pI2CHandle->remaining == 0U)
+    {
+        // invalid state
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }
+
+        // one-byte transfer
+    if (pI2CHandle->remaining == 1U)
+        {
+        *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+        pI2CHandle->pBuffer++;
+        pI2CHandle->remaining--;
+
+        // Close transfer and notify user
+        I2C_CloseTransferMaster(pI2CHandle);
             I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
             return;
         }
-        else if (pI2CHandle->RxLen > 3U)
+    else if (pI2CHandle->remaining > 3U)
         {
-            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
-            pI2CHandle->pRxBuffer++;
-            pI2CHandle->RxLen--;
+        *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+        pI2CHandle->pBuffer++;
+        pI2CHandle->remaining--;
         }
 
-        if (pI2CHandle->RxLen == 3U)
+    if (pI2CHandle->remaining == 3U || 
+        pI2CHandle->remaining == 2U)
         {
-            // disable buffer interrupts to handle final 3 bytes with BTF handler
+        // disable buffer interrupts to handle final bytes with BTF handler
             pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
         }
     }
+
+/**************************************************************************
+ * @fn		I2C_HandleRxNESlave
+ *
+ * @brief	Handler for RxNE interrupts for slaves.
+ *
+ * @details
+ * For slave-recievers, if there is space in the buffer, it simply reads
+ * the DR into the RxBuffer. If the RxBuffer is full, it voids the DR.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_HandleRxNESlave(I2C_handle_t *pI2CHandle)
+{
     // if slave-in-rx
-    else if (pI2CHandle->mode == I2C_MODE_SLAVE &&
-        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    if ( pI2CHandle->TxRxState == I2C_BUSY_IN_RX )
     {
-        if(pI2CHandle->RxLen > 0U)
+        if(pI2CHandle->remaining > 0U)
         {
-            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
-            pI2CHandle->pRxBuffer++;
-            pI2CHandle->RxLen--;
+            *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->pBuffer++;
+            pI2CHandle->remaining--;
         }
         else
         {
             // TODO: record buffer overflow
             (void)pI2CHandle->pI2Cx->DR;
+        }
             return;
         }
-    }
+    // invalid state
+    I2C_EnterRecoveryRequired(pI2CHandle);
 }
 
 // ***************************************************************
