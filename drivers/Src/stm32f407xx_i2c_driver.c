@@ -1297,7 +1297,7 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		I2C_HandleBTF
+ * @fn		I2C_HandleBTFMaster
  *
  * @brief	Handles BTF interrupts for master.
  *
@@ -1305,7 +1305,7 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
  * For a master-in-transmit, the BTF flag indicates that both the DR
  * and the shift register is empty. If this occurs because the master
  * has already transmitted all data, then BTF being set indicates that
- * the transfer has complete sending the final byte to the slave. This
+ * the transfer has completed sending the final byte to the slave. This
  * handler handles such a case by requesting the stop condition and
  * notifying the application.
  * 
@@ -1319,90 +1319,76 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
  * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
- *
- * @note	This helper simply returns if the peripheral is a slave,
- *          since BTF flags can be handled by either reading the DR
- *          register in Rx mode (RxNE handler), or writing the DR if
- *          in Tx mode (TxE handler).
- *
- * @note    This helper also returns if the peripheral is a master-in
- *          Rx and RxLen>3, since that case is also handled by the
- *          RxNE handler, not BTF.
  ***************************************************************************/
-static void I2C_HandleBTF(I2C_handle_t *pI2CHandle)
+static void I2C_HandleBTFMaster(I2C_handle_t *pI2CHandle)
 {
     // if master-in-tx
-    if (pI2CHandle->mode == I2C_MODE_MASTER &&
-        pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    if ( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
     {
-        if (pI2CHandle->TxLen == 0U)
+        if (pI2CHandle->remaining == 0U)
         {
             // request stop
             if (pI2CHandle->Sr == I2C_SR_DI)
-            {
                 I2C_RequestStopCondition(pI2CHandle->pI2Cx);
-                pI2CHandle->mode = I2C_MODE_SLAVE;
-            }
             
             // Close transfer and notify user
-
-            // disable interrupts
-            I2C_DisableInterrupts(pI2CHandle->pI2Cx);
-            
-            pI2CHandle->TxRxState = I2C_READY;
-            pI2CHandle->targetAddr = 0x00U;
-            
+            I2C_CloseTransferMaster(pI2CHandle);
             I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
+            return;
+        }
+        else
+        {
+            I2C_HandleTxEMaster(pI2CHandle);
+            return;
         }
     }
 
     // if master-in-rx
-    else if (pI2CHandle->mode == I2C_MODE_MASTER &&
-        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    else if (pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
     {
+        // more than 3 bytes
+        if (pI2CHandle->remaining > 3U)
+        {
+            I2C_HandleRxNEMaster(pI2CHandle);
+            return;
+        }
         // 2-bytes left
-        if (pI2CHandle->RxLen == 2U)
+        else if (pI2CHandle->remaining == 2U)
         {
             // Request stop
             if (pI2CHandle->Sr == I2C_SR_DI)
             {
                 I2C_RequestStopCondition(pI2CHandle->pI2Cx);
-                pI2CHandle->mode = I2C_MODE_SLAVE;
             }
 
             // Read both bytes
-            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
-            pI2CHandle->RxLen--;
-            pI2CHandle->pRxBuffer++;
-            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
-            pI2CHandle->RxLen--;
-            pI2CHandle->pRxBuffer++;
+            *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->remaining--;
+            pI2CHandle->pBuffer++;
+            *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->remaining--;
+            pI2CHandle->pBuffer++;
 
             // Close transfer and notify user
-
-            // disable interrupts
-            I2C_DisableInterrupts(pI2CHandle->pI2Cx);
-            
-            pI2CHandle->TxRxState = I2C_READY;
-            pI2CHandle->targetAddr = 0x00U;
-
-            I2C_RestoreACK(pI2CHandle);
-            pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_POS_BIT);
-
+            I2C_CloseTransferMaster(pI2CHandle);
             I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
+            return;
         }
         // 3-bytes remaining
-        else if (pI2CHandle->RxLen == 3U)
+        else if (pI2CHandle->remaining == 3U)
         {
             // Disable ACKing
             I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
 
             // Read data into buffer
-            *pI2CHandle->pRxBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
-            pI2CHandle->pRxBuffer++;
-            pI2CHandle->RxLen--;
+            *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
+            pI2CHandle->pBuffer++;
+            pI2CHandle->remaining--;
+            return;
         }
     }
+    // invalid state
+    I2C_EnterRecoveryRequired(pI2CHandle);
 }
 
 /**************************************************************************
