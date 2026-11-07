@@ -163,8 +163,8 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
     uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
     uint8_t SR);                                                    // Receives data from slave as master (non-blocking)
 
-void I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle);              // Dispatcher for event interrupts.
-void I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle);             // Dispatcher for error interrupts.
+void I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle);                  // Dispatcher for event interrupts.
+void I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle);                 // Dispatcher for error interrupts.
 
 void I2C_ApplicationEventCallback(I2C_handle_t *pHandle,
                                   I2C_event_t event);               // Weakly implemented, called by private driver interrupt handlers

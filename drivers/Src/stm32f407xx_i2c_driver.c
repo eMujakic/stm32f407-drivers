@@ -1055,6 +1055,13 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
 // ******************* INTERRUPT EVENT HELPERS *******************
 // ***************************************************************
 
+// buffer interrupt handler prototypes
+static void I2C_HandleRxNEMaster(I2C_handle_t *pI2CHandle);
+static void I2C_HandleTxEMaster(I2C_handle_t *pI2CHandle);
+
+static void I2C_HandleRxNESlave(I2C_handle_t *pI2CHandle);
+static void I2C_HandleTxESlave(I2C_handle_t *pI2CHandle);
+
 /**************************************************************************
  * @fn		I2C_CloseTransferMaster
  *
@@ -1775,13 +1782,18 @@ status_t I2C_MasterSendDataIT(I2C_handle_t *pI2CHandle,
     if (slaveAddr > 0x7FU || SR > 1U)
         return STATUS_INVALID_PARAM;
 
+    // ensure handle is free
+    if (pI2CHandle->TxRxState != I2C_READY)
+        return STATUS_BUSY;
+
     // Update interrupt state in handle
-    pI2CHandle->pTxBuffer   = pTxBuffer;
-    pI2CHandle->TxLen       = len;
-    pI2CHandle->TxRxState   = I2C_BUSY_IN_TX;
-    pI2CHandle->targetAddr  = slaveAddr;
-    pI2CHandle->Sr          = SR;
-    pI2CHandle->mode        = I2C_MODE_MASTER;
+    pI2CHandle->pBuffer         = pTxBuffer;
+    pI2CHandle->remaining       = len;
+    pI2CHandle->transferSize    = len;
+    pI2CHandle->targetAddr      = slaveAddr;
+    pI2CHandle->Sr              = SR;
+    pI2CHandle->mode            = I2C_MODE_MASTER;
+    pI2CHandle->TxRxState       = I2C_BUSY_IN_TX;
 
     // Request start condition
     I2C_RequestStartCondition(pI2CHandle->pI2Cx);
@@ -1829,10 +1841,6 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
         !I2C_IsValidInstance(pI2CHandle->pI2Cx))
         return STATUS_INVALID_PARAM;
 
-    // ensure handle is free
-    if (pI2CHandle->TxRxState != I2C_READY)
-        return STATUS_BUSY;
-
     // validate inputs
     if (!pRxBuffer || len < 1U)
         return STATUS_INVALID_PARAM;
@@ -1840,14 +1848,18 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
     if (slaveAddr > 0x7FU || SR > 1U)
         return STATUS_INVALID_PARAM;
 
+    // ensure handle is free
+    if (pI2CHandle->TxRxState != I2C_READY)
+        return STATUS_BUSY;
+
     // Update interrupt state in handle
-    pI2CHandle->pRxBuffer   = pRxBuffer;
-    pI2CHandle->RxLen       = len;
-    pI2CHandle->TxRxState   = I2C_BUSY_IN_RX;
-    pI2CHandle->targetAddr  = slaveAddr;
-    pI2CHandle->RxSize      = len;
-    pI2CHandle->Sr          = SR;
-    pI2CHandle->mode        = I2C_MODE_MASTER;
+    pI2CHandle->pBuffer         = pRxBuffer;
+    pI2CHandle->remaining       = len;
+    pI2CHandle->transferSize    = len;
+    pI2CHandle->targetAddr      = slaveAddr;
+    pI2CHandle->Sr              = SR;
+    pI2CHandle->mode            = I2C_MODE_MASTER;
+    pI2CHandle->TxRxState       = I2C_BUSY_IN_RX;
 
     // Enable ACKing
     pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_ACK_BIT);
