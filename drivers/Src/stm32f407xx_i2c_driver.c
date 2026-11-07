@@ -271,7 +271,7 @@ static void I2C_InterruptControl(I2C_reg_t *pI2Cx, uint8_t EnorDi)
 
     if (EnorDi == DISABLE)
     {
-    pI2Cx->CR2  &= 
+        pI2Cx->CR2  &= 
         ~(  (1U << I2C_CR2_ITERREN_BIT) |
             (1U << I2C_CR2_ITEVTEN_BIT) |
             (1U << I2C_CR2_ITBUFEN_BIT));
@@ -1200,7 +1200,7 @@ static void I2C_HandleSBMaster(I2C_handle_t *pI2CHandle)
     else
     {
         I2C_EnterRecoveryRequired(pI2CHandle);
-        return; 
+        return;
     }
 
     I2C_ExecuteAddrPhase(pI2CHandle->pI2Cx, pI2CHandle->targetAddr, rw);
@@ -1311,14 +1311,14 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
             I2C_HandleRxNESlave(pI2CHandle);
     }
 
-        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+    I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
 
-        uint32_t TRA = (pI2CHandle->pI2Cx->SR2 >> I2C_SR2_TRA_BIT) &0x1U;
+    uint32_t TRA = (pI2CHandle->pI2Cx->SR2 >> I2C_SR2_TRA_BIT) &0x1U;
     uint8_t state = TRA ? I2C_BUSY_IN_TX : I2C_BUSY_IN_RX;
 
     pI2CHandle->TxRxState = state;
 
-        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_SLAVE_ADDR_MATCH);
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_SLAVE_ADDR_MATCH);
 
     // ensure valid handle after callback
     if ((pI2CHandle->TxRxState != state) ||
@@ -1366,7 +1366,7 @@ static void I2C_HandleBTFMaster(I2C_handle_t *pI2CHandle)
             // request stop
             if (pI2CHandle->Sr == I2C_SR_DI)
                 I2C_RequestStopCondition(pI2CHandle->pI2Cx);
-            
+                
             // Close transfer and notify user
             I2C_CloseTransferMaster(pI2CHandle);
             I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
@@ -1507,7 +1507,7 @@ static void I2C_HandleSTOPFSlave(I2C_handle_t *pI2CHandle)
  * @details
  * For transmitting I2C peripherals, this handler
  * simply writes the data buffer if pTxBuffer hasn't been exhausted.
- *
+ * 
  * If the TxBuffer in the handle has been exhausted, this handler
  * disables buffer interrupts. For masters, this means that no more
  * TxE interrupts occur, and when the final byte is transfered, the
@@ -1526,17 +1526,17 @@ static void I2C_HandleTxEMaster(I2C_handle_t *pI2CHandle)
     }
         
     if (pI2CHandle->remaining > 0U)
-        {
+    {
         pI2CHandle->pI2Cx->DR = *pI2CHandle->pBuffer;
         pI2CHandle->pBuffer++;
         pI2CHandle->remaining--;
-        }
+    }
 
     // master with empty tx-buffer
     if (pI2CHandle->remaining == 0U)
-        {
-            // disable buffer interrupts so BTF can notify user if in master mode
-            pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+    {
+        // disable buffer interrupts so BTF can notify user if in master mode
+        pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
     }
 }
 
@@ -1548,7 +1548,7 @@ static void I2C_HandleTxEMaster(I2C_handle_t *pI2CHandle)
  * @details
  * For transmitting I2C peripherals, this handler
  * simply writes the data buffer if pTxBuffer hasn't been exhausted.
- *
+ * 
  * If the TxBuffer in the handle has been exhausted, this handler
  * sends filler data (0xFF).
  *
@@ -1606,32 +1606,32 @@ static void I2C_HandleRxNEMaster(I2C_handle_t *pI2CHandle)
         return;
     }
 
-        // one-byte transfer
+    // one-byte transfer
     if (pI2CHandle->remaining == 1U)
-        {
+    {
         *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
         pI2CHandle->pBuffer++;
         pI2CHandle->remaining--;
 
         // Close transfer and notify user
         I2C_CloseTransferMaster(pI2CHandle);
-            I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
-            return;
-        }
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
+        return;
+    }
     else if (pI2CHandle->remaining > 3U)
-        {
+    {
         *pI2CHandle->pBuffer = (uint8_t) pI2CHandle->pI2Cx->DR;
         pI2CHandle->pBuffer++;
         pI2CHandle->remaining--;
-        }
+    }
 
     if (pI2CHandle->remaining == 3U || 
         pI2CHandle->remaining == 2U)
-        {
+    {
         // disable buffer interrupts to handle final bytes with BTF handler
-            pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
-        }
+        pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
     }
+}
 
 /**************************************************************************
  * @fn		I2C_HandleRxNESlave
@@ -1662,8 +1662,8 @@ static void I2C_HandleRxNESlave(I2C_handle_t *pI2CHandle)
             // TODO: record buffer overflow
             (void)pI2CHandle->pI2Cx->DR;
         }
-            return;
-        }
+        return;
+    }
     // invalid state
     I2C_EnterRecoveryRequired(pI2CHandle);
 }
@@ -1746,18 +1746,18 @@ static void I2C_HandleARLO(I2C_handle_t *pI2CHandle)
  * @return	None.
  ***************************************************************************/
 static void I2C_HandleAFMaster(I2C_handle_t *pI2CHandle)
-    {
-        // request stop
-        if (I2C_GetFlag(pI2CHandle->pI2Cx, I2C_MSL_FLAG))
-            I2C_RequestStopCondition(pI2CHandle->pI2Cx);
+{
+    // request stop
+    if (I2C_GetFlag(pI2CHandle->pI2Cx, I2C_MSL_FLAG))
+        I2C_RequestStopCondition(pI2CHandle->pI2Cx);
 
-        // clear AF flag
-        pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
+    // clear AF flag
+    pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
 
     I2C_CloseTransferMaster(pI2CHandle);
-        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_NACK);
-    }
-    
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_NACK);
+}
+
 /**************************************************************************
  * @fn		I2C_HandleAF
  *
@@ -2091,8 +2091,8 @@ void I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
         if (pI2CHandle->mode == I2C_MODE_MASTER)
         {   
             I2C_HandleBTFMaster(pI2CHandle);
-    }
-
+        }
+            
         // slave
         else if (pI2CHandle->mode == I2C_MODE_SLAVE)
             I2C_HandleBTFSlave(pI2CHandle);
@@ -2211,7 +2211,7 @@ void I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle)
         else if (pI2CHandle->mode == I2C_MODE_SLAVE)
         {
             I2C_HandleAFSlave(pI2CHandle);
-    }
+        }
 
         return;
     }
