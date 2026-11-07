@@ -1140,6 +1140,8 @@ static void I2C_EnterRecoveryRequired(I2C_handle_t *pI2CHandle)
     I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_INVALID_STATE);
 }
 
+/**************************************************************************
+ * @fn		I2C_HandleSBMaster
  *
  * @brief	Handles SB interrupts be executing the address phase.
  *
@@ -1149,19 +1151,22 @@ static void I2C_EnterRecoveryRequired(I2C_handle_t *pI2CHandle)
  *
  * @note	SB flag can only be set if the peripheral is in master mode.
  ***************************************************************************/
-static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
+static void I2C_HandleSBMaster(I2C_handle_t *pI2CHandle)
 {
     // execute address phase
     I2C_rw_t rw;
-    if( pI2CHandle->TxRxState == I2C_BUSY_IN_RX )
+    if(pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
         rw = I2C_READ;
-    else if( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
+    }
+    else if(pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    {
         rw = I2C_WRITE;
+    }
     // invalid state
     else
     {
-        I2C_DisableInterrupts(pI2CHandle->pI2Cx);
-        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_INVALID_STATE);
+        I2C_EnterRecoveryRequired(pI2CHandle);
         return; 
     }
 
@@ -1169,9 +1174,9 @@ static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		I2C_HandleADDR
+ * @fn		I2C_HandleADDRMaster
  *
- * @brief	Handles ADDR interrupts for master and slave.
+ * @brief	Handles ADDR interrupts for master mode.
  *
  * @details
  * In the case of a master-in-tx, the address flag is simply cleared and
@@ -1180,29 +1185,31 @@ static void I2C_HandleSB(I2C_handle_t *pI2CHandle)
  * In the case of a master-in-rx, the correct protocol is dependant
  * on the original message size.
  *
- * In the case of a slave, this is the handler which uses the address
- * information from the master to determine whether its going to 
- * receive or transmit. Therefore, this handler must update the
- * necessary handler state to reflect this.
- *
  * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
  ***************************************************************************/
-static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
+static void I2C_HandleADDRMaster(I2C_handle_t *pI2CHandle)
 {
+    // invalid state
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX &&
+        pI2CHandle->TxRxState != I2C_BUSY_IN_RX)
+    {
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }   
+
     // if master-in-Tx
-    if ( pI2CHandle->mode == I2C_MODE_MASTER &&
-        pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
+    if ( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
     {
         I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+        return;
     }
     
     // if master-in-Rx
-    else if (pI2CHandle->mode == I2C_MODE_MASTER &&
-        pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    else if ( pI2CHandle->TxRxState == I2C_BUSY_IN_RX )
     {
-        if(pI2CHandle->RxSize == 1U)
+        if(pI2CHandle->transferSize == 1U)
         {
             // Disable ACKing
             I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
@@ -1214,7 +1221,7 @@ static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
             if (pI2CHandle->Sr == I2C_SR_DI)
                 I2C_RequestStopCondition(pI2CHandle->pI2Cx);
         }
-        else if (pI2CHandle->RxSize == 2U)
+        else if (pI2CHandle->transferSize == 2U)
         {
             // Assert POS
             pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_POS_BIT);
@@ -1225,24 +1232,68 @@ static void I2C_HandleADDR(I2C_handle_t *pI2CHandle)
             // Clear ADDR flag
             I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
         }
-        else // (RxSize > 2)
+        else // transferSize > 2U
         {
             I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
         }
     }
+}
 
-    else if (pI2CHandle->mode == I2C_MODE_SLAVE)
+/**************************************************************************
+ * @fn		I2C_HandleADDRSlave
+ *
+ * @brief	Handles ADDR interrupts for slave.
+ *
+ * @details
+ * In the case of a slave, this is the handler which uses the address
+ * information from the master to determine whether its going to 
+ * receive or transmit. Therefore, the callback must update the
+ * necessary handler state to reflect this.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
+{
+    // invalid state
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX &&
+        pI2CHandle->TxRxState != I2C_BUSY_IN_RX &&
+        pI2CHandle->TxRxState != I2C_READY)
     {
-        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
-        uint32_t TRA = (pI2CHandle->pI2Cx->SR2 >> I2C_SR2_TRA_BIT) &0x1U;
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }   
+    
+    // disable buffer interrupts
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
 
-        if (TRA)
-            pI2CHandle->TxRxState = I2C_BUSY_IN_TX;
-        else
-            pI2CHandle->TxRxState = I2C_BUSY_IN_RX;
+    // drain pending DR
+    if (pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        while(pI2CHandle->pI2Cx->SR1 & (1U << I2C_SR1_RxNE_BIT))
+            I2C_HandleRxNESlave(pI2CHandle);
+    }
+
+        I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
+
+        uint32_t TRA = (pI2CHandle->pI2Cx->SR2 >> I2C_SR2_TRA_BIT) &0x1U;
+    uint8_t state = TRA ? I2C_BUSY_IN_TX : I2C_BUSY_IN_RX;
+
+    pI2CHandle->TxRxState = state;
 
         I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_SLAVE_ADDR_MATCH);
+
+    // ensure valid handle after callback
+    if ((pI2CHandle->TxRxState != state) ||
+        (pI2CHandle->pBuffer == NULL && pI2CHandle->remaining > 0U))
+    {
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
     }
+    
+    // re-enable buffer interrupts
+    pI2CHandle->pI2Cx->CR2 |= (1U << I2C_CR2_ITBUFEN_BIT);
 }
 
 /**************************************************************************
