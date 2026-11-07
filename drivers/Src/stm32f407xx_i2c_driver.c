@@ -256,23 +256,34 @@ static status_t I2C_RestoreACK(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		I2C_DisableInterrupts
+ * @fn		I2C_InterruptControl
  *
- * @brief	Disables all interrupts for an I2C peripheral.
+ * @brief	Enables/disables all interrupts for an I2C peripheral.
  *
  * @param[in] pI2Cx	    Pointer to I2C's base address.
  *
  * @return	None.
  ***************************************************************************/
-static void I2C_DisableInterrupts(I2C_reg_t *pI2Cx)
+static void I2C_InterruptControl(I2C_reg_t *pI2Cx, uint8_t EnorDi)
 {
     if(!pI2Cx || !I2C_IsValidInstance(pI2Cx))
         return;
 
+    if (EnorDi == DISABLE)
+    {
     pI2Cx->CR2  &= 
         ~(  (1U << I2C_CR2_ITERREN_BIT) |
             (1U << I2C_CR2_ITEVTEN_BIT) |
             (1U << I2C_CR2_ITBUFEN_BIT));
+    }
+    
+    else if (EnorDi == ENABLE)
+    {
+        pI2Cx->CR2  |= 
+        (   (1U << I2C_CR2_ITERREN_BIT) |
+            (1U << I2C_CR2_ITEVTEN_BIT) |
+            (1U << I2C_CR2_ITBUFEN_BIT));
+    }
 }
 
 // ***************************************************************
@@ -1045,7 +1056,90 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
 // ***************************************************************
 
 /**************************************************************************
- * @fn		I2C_HandleSB
+ * @fn		I2C_CloseTransferMaster
+ *
+ * @brief	Disables interrupts and cleans handle members.
+ *
+ * @details
+ * Disables all interrupts, cleans interrupt state in the passed handle,
+ * and clears POS for receiving masters.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_CloseTransferMaster(I2C_handle_t *pI2CHandle)
+{
+    if (!pI2CHandle || !pI2CHandle->pI2Cx) return;
+
+    // disable further interrupts
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
+
+    if(pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_POS_BIT);
+    }
+            
+    // clean handle state
+    pI2CHandle->TxRxState       = I2C_READY;
+    pI2CHandle->targetAddr      = 0x00U;
+    pI2CHandle->remaining       = 0U;
+    pI2CHandle->transferSize    = 0U;
+    pI2CHandle->pBuffer         = NULL;
+
+    // I2C_RestoreACK(pI2CHandle); // TODO: this busy waits, can't be used in interrupt context
+}
+
+/**************************************************************************
+ * @fn		I2C_CloseTransferSlave
+ *
+ * @brief	Closes an interrupt transfer for I2C slave.
+ *
+ * @details
+ * Disables buffer interrupts and cleans minimum necessary interrupt state
+ * in handle. Event and error interrupts are left enabled so the slave
+ * can continue responding to address matches.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_CloseTransferSlave(I2C_handle_t *pI2CHandle)
+{
+    if (!pI2CHandle || !pI2CHandle->pI2Cx) return;
+
+    // disable buffer interrupts
+    // leave event/error interrupts enabled for future addr matches
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+            
+    // clean handle state
+    pI2CHandle->TxRxState       = I2C_READY;
+    pI2CHandle->targetAddr      = 0x00U;
+}
+
+/**************************************************************************
+ * @fn		I2C_EnterRecoveryRequired
+ *
+ * @brief	Puts interrupt driven I2C handle into recovery-required state.
+ *
+ * @details
+ * Disables all interrupts, sets state to I2C_RECOVERY_REQUIRED, and
+ * leaves recovery responsiblity to user's callback.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_EnterRecoveryRequired(I2C_handle_t *pI2CHandle)
+{
+    // disable interrupts
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
+    // set handle state
+    pI2CHandle->TxRxState = I2C_RECOVERY_REQUIRED;
+    // notify user
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_INVALID_STATE);
+}
+
  *
  * @brief	Handles SB interrupts be executing the address phase.
  *

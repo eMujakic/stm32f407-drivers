@@ -16,9 +16,10 @@
 #define I2C_TRISE_MAX_FM 300U   // in nanoseconds
 
 // ====================== I2C State Macros ======================
-#define I2C_READY       0U
-#define I2C_BUSY_IN_RX  1U
-#define I2C_BUSY_IN_TX  2U
+#define I2C_READY               0U
+#define I2C_BUSY_IN_RX          1U
+#define I2C_BUSY_IN_TX          2U
+#define I2C_RECOVERY_REQUIRED   3U
 
 // ====================== Repeated-Start Macros ======================
 #define I2C_SR_EN   ENABLE
@@ -115,15 +116,13 @@ typedef struct
     I2C_config_t    I2C_Config;
 
     // Interrupt state
-    uint8_t         *pTxBuffer;
-    uint8_t         *pRxBuffer;
-    uint32_t        TxLen;
-    uint32_t        RxLen;
-    uint8_t         TxRxState;  // stores communication state
-    uint8_t         targetAddr; // address of target device to communicate with
-    uint32_t        RxSize;     // Initial length of Rx transfer
-    uint8_t         Sr;         // stores repeated start value
-    I2C_mode_t      mode;       // None/Master/Slave
+    uint8_t         *pBuffer;
+    uint32_t        remaining;      // number of bytes remaining in buffer
+    uint8_t         TxRxState;      // stores communication state
+    uint8_t         targetAddr;     // address of target device to communicate with
+    uint32_t        transferSize;   // Initial length of transfer
+    uint8_t         Sr;             // stores repeated start value
+    I2C_mode_t      mode;           // None/Master/Slave
 } I2C_handle_t;
 
 /*********************************************************************************
