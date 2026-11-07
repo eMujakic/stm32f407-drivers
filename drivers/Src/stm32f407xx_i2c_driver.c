@@ -1420,14 +1420,46 @@ static void I2C_HandleBTFSlave(I2C_handle_t *pI2CHandle)
     I2C_EnterRecoveryRequired(pI2CHandle);
 }
 
+/**************************************************************************
+ * @fn		I2C_HandleSTOPFSlave
+ *
+ * @brief	Interrupt handler for the STOPF flag.
+ *
+ * @details
+ * The STOPF flag notifies the slave of a detected stop condition on the
+ * I2C bus. This handler simply clears the flag, drains DR, and notifies
+ * the application.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ *
+ * @note	The STOPF flag can only be asserted if the peripheral is 
+ *          in slave mode.
  ***************************************************************************/
-static void I2C_HandleSTOPF(I2C_handle_t *pI2CHandle)
+static void I2C_HandleSTOPFSlave(I2C_handle_t *pI2CHandle)
 {
     // Clear STOPF flag
     (void) pI2CHandle->pI2Cx->SR1;
     pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_PE_BIT);
 
-    // TODO: Close transfer and notify user of STOP
+    // validate state
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX &&
+        pI2CHandle->TxRxState != I2C_BUSY_IN_RX &&
+        pI2CHandle->TxRxState != I2C_READY)
+    {
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }   
+
+    // drain pending DR
+    if (pI2CHandle->TxRxState == I2C_BUSY_IN_RX)
+    {
+        while(pI2CHandle->pI2Cx->SR1 & (1U << I2C_SR1_RxNE_BIT))
+            I2C_HandleRxNESlave(pI2CHandle);
+    }
+    // Close transfer and notify user of STOP
+    I2C_CloseTransferSlave(pI2CHandle);
     I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_STOP);
 }
 
