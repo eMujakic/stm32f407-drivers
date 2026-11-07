@@ -286,6 +286,32 @@ static void I2C_InterruptControl(I2C_reg_t *pI2Cx, uint8_t EnorDi)
     }
 }
 
+/**************************************************************************
+ * @fn		I2C_HasErrors
+ *
+ * @brief	Checks for pending error flags.
+ *
+ * @param[in] pI2Cx	    Pointer to I2C's base address.
+ *
+ * @return	STATUS_OK: No errors detected.
+ *          STATUS_ERROR: Errors detected.
+ ***************************************************************************/
+static status_t I2C_HasErrors(I2C_reg_t *pI2Cx)
+{
+    uint32_t sr1 = pI2Cx->SR1;
+
+    uint32_t error_mask =   (1U << I2C_SR1_BERR_BIT) |
+                            (1U << I2C_SR1_ARLO_BIT) |
+                            (1U << I2C_SR1_AF_BIT) |
+                            (1U << I2C_SR1_OVR_BIT) |
+                            (1U << I2C_SR1_TIMEOUT_BIT);
+
+    if (sr1 & error_mask)
+        return STATUS_ERROR;
+
+    return STATUS_OK;
+}
+
 // ***************************************************************
 // ********************* API IMPLEMENTATIONS *********************
 // ***************************************************************
@@ -1646,40 +1672,80 @@ static void I2C_HandleRxNESlave(I2C_handle_t *pI2CHandle)
 // ******************* INTERRUPT ERROR HELPERS *******************
 // ***************************************************************
 
+/**************************************************************************
+ * @fn		I2C_HandleBERR
+ *
+ * @brief	Interrupt handler for BERR.
+ *
+ * @details
+ * Handles BERR (bus-error) interrupts by clearing the BERR flag,
+ * disabling further interrupts, and notifying the application.
+ * 
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
 static void I2C_HandleBERR(I2C_handle_t *pI2CHandle)
 {
+    // disable further interrupts
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
+
     // clear BERR
     pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_BERR_BIT);
 
-    // disable further interrupts
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITEVTEN_BIT);
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITERREN_BIT);
+    // Update state
+    pI2CHandle->TxRxState = I2C_RECOVERY_REQUIRED;
 
-    // TODO: Notify application
+    // Notify application
     I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_BERR);
 }
 
+/**************************************************************************
+ * @fn		I2C_HandleARLO
+ *
+ * @brief	Interrupt handler for arbitration errors.
+ *
+ * @details
+ * Handles ARLO errors by clearing the ARLO flag, disabling interrupts,
+ * setting the mode field in the handle to I2C_MODE_SLAVE, and notifying
+ * the user.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
 static void I2C_HandleARLO(I2C_handle_t *pI2CHandle)
 {
+    // disable further interrupts
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
+
     // clear ARLO
     pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_ARLO_BIT);
 
-    pI2CHandle->mode = I2C_MODE_NONE;
+    // set handle to slave mode
+    pI2CHandle->mode = I2C_MODE_SLAVE;
 
-    // disable further interrupts
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITEVTEN_BIT);
-    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITERREN_BIT);
+    // Update state
+    pI2CHandle->TxRxState = I2C_RECOVERY_REQUIRED;
     
-    // TODO: Notify application
+    // Notify application
     I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_ARLO);
 }
 
-static void I2C_HandleAF(I2C_handle_t *pI2CHandle)
-{
-    // if master
-    if (pI2CHandle->mode == I2C_MODE_MASTER)
+/**************************************************************************
+ * @fn		I2C_HandleAF
+ *
+ * @brief	Handles acknowledgement-fail interrupts for master.
+ * 
+ * @details
+ * Handles master-AF interrupts by requesting stop, clearing the AF flag,
+ * closing the transfer, and notifying the user.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_HandleAFMaster(I2C_handle_t *pI2CHandle)
     {
         // request stop
         if (I2C_GetFlag(pI2CHandle->pI2Cx, I2C_MSL_FLAG))
@@ -1688,50 +1754,101 @@ static void I2C_HandleAF(I2C_handle_t *pI2CHandle)
         // clear AF flag
         pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
 
-        // TODO: close transfer and notify user
+    I2C_CloseTransferMaster(pI2CHandle);
         I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_NACK);
     }
     
+/**************************************************************************
+ * @fn		I2C_HandleAF
+ *
+ * @brief	Handles acknowledgement-fail interrupts for slave.
+ *
+ * @details
+ * Handles slave AF interrupts when transmitting by clearing the flag,
+ * closing the transfer, and notifying the user. In the case of a 
+ * slave-in-rx, it simply clears the flag.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void I2C_HandleAFSlave(I2C_handle_t *pI2CHandle)
+{
+   
     // if slave-in-tx
-    else if(pI2CHandle->mode == I2C_MODE_SLAVE &&
-            pI2CHandle->TxRxState == I2C_BUSY_IN_TX)
+    if( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
     {
         // clear AF flag
         pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
 
-        // TODO: Close transfer and notify completion
+        // Close transfer and notify completion
+        I2C_CloseTransferSlave(pI2CHandle);
         I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
     }
-
-    // force clear AF
     else
     {
+        // clear AF flag
         pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
+
+        I2C_EnterRecoveryRequired(pI2CHandle);
     }
 }
 
+/**************************************************************************
+ * @fn		I2C_HandleOVR
+ *
+ * @brief	Handles OVR interrupts.
+ *
+ * @details
+ * Disables all interrupts, clears the OVR flag, updates the state to
+ * I2C_RECOVERY_REQUIRED, and notifies the user of the over/under-run.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
 static void I2C_HandleOVR(I2C_handle_t *pI2CHandle)
 {
+    // disable interrupts
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
 
+    // clear ovr
+    pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_OVR_BIT);
+
+    // update state
+    pI2CHandle->TxRxState = I2C_RECOVERY_REQUIRED;
+
+    // notify user
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_OVR);
 }
 
-// static void I2C_HandlePECERR(I2C_handle_t *pI2CHandle)
-// {
-
-// }
-
+/**************************************************************************
+ * @fn		I2C_HandleTIMEOUT
+ *
+ * @brief	Handles timeout interrupts.
+ *
+ * @details
+ * Disables all interrupts, clears the TIMEOUT flag, updates the state to
+ * I2C_RECOVERY_REQUIRED, and notifies the user of the timeout.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
+ *
+ * @return	None.
+ ***************************************************************************/
 static void I2C_HandleTIMEOUT(I2C_handle_t *pI2CHandle)
 {
-    if (pI2CHandle->mode == I2C_MODE_MASTER)
-    {
+    // disable interrupts
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
 
-    }
+    // clear TIMEOUT
+    pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_TIMEOUT_BIT);
+
+    // update state
+    pI2CHandle->TxRxState = I2C_RECOVERY_REQUIRED;
+
+    // notify user
+    I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TIMEOUT);
 }
-
-// static void I2C_HandleSMBALERT(I2C_handle_t *pI2CHandle)
-// {
-
-// }
 
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
@@ -1770,10 +1887,6 @@ status_t I2C_MasterSendDataIT(I2C_handle_t *pI2CHandle,
     if (!pI2CHandle || !pI2CHandle->pI2Cx ||
         !I2C_IsValidInstance(pI2CHandle->pI2Cx))
         return STATUS_INVALID_PARAM;
-
-    // ensure handle is free
-    if (pI2CHandle->TxRxState != I2C_READY)
-        return STATUS_BUSY;
 
     // validate inputs
     if (!pTxBuffer || len < 1U)
@@ -1916,6 +2029,14 @@ void I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
     uint32_t SR1 = pI2CHandle->pI2Cx->SR1;
     uint32_t CR2 = pI2CHandle->pI2Cx->CR2;
 
+    // check for errors first
+    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
+        (I2C_HasErrors(pI2CHandle->pI2Cx) == STATUS_ERROR))
+    {
+        I2C_IRQHandling_ERR(pI2CHandle);
+        return;
+    }
+
     // handle SB interrupt (MASTER-ONLY)
     if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
         SR1 & (1U << I2C_SR1_SB_BIT))
@@ -2015,48 +2136,49 @@ void I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
 /**************************************************************************
  * @fn		I2C_IRQHandling_ERR
  *
- * @brief	TODO
+ * @brief	Interrupt dispatcher for I2C error interrupts.
  *
  * @details
- * TODO
+ * Dispatches error interrupt handlers in the following order:
+ * ARLO, BERR, OVR, TIMEOUT, AF
  *
- * @param[in] TODO		TODO
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
- *
- * @note	TODO
  ***************************************************************************/
-status_t I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle)
+void I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle)
 {
     // Validate pointers
     if (!pI2CHandle || !pI2CHandle->pI2Cx ||
         !I2C_IsValidInstance(pI2CHandle->pI2Cx))
-        return STATUS_INVALID_PARAM;
+        return;
+
+    // validate mode
+    if (pI2CHandle->mode != I2C_MODE_MASTER &&
+        pI2CHandle->mode != I2C_MODE_SLAVE)
+    {
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }
 
     // cache registers
     uint32_t SR1 = pI2CHandle->pI2Cx->SR1;
     uint32_t CR2 = pI2CHandle->pI2Cx->CR2;
-
-    // handle bus error
-    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
-        SR1 & (1U << I2C_SR1_BERR_BIT))
-    {
-        I2C_HandleBERR(pI2CHandle);
-        return STATUS_ERROR;
-    }
 
     // handle arbitration error
     if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
         SR1 & (1U << I2C_SR1_ARLO_BIT))
     {
         I2C_HandleARLO(pI2CHandle);
+        return;
     }
 
-    // handle NACK error
+    // handle bus error
     if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
-        SR1 & (1U << I2C_SR1_AF_BIT))
+        SR1 & (1U << I2C_SR1_BERR_BIT))
     {
-        I2C_HandleAF(pI2CHandle);
+        I2C_HandleBERR(pI2CHandle);
+        return;
     }
 
     // handle over/under-run error
@@ -2064,6 +2186,7 @@ status_t I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle)
         SR1 & (1U << I2C_SR1_OVR_BIT))
     {
         I2C_HandleOVR(pI2CHandle);
+        return;
     }
 
     // handle timeout error
@@ -2071,7 +2194,25 @@ status_t I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle)
         SR1 & (1U << I2C_SR1_TIMEOUT_BIT))
     {
         I2C_HandleTIMEOUT(pI2CHandle);
+        return;
     }
 
-    return STATUS_OK;
+    // handle NACK error
+    if (CR2 & (1U << I2C_CR2_ITERREN_BIT) &&
+        SR1 & (1U << I2C_SR1_AF_BIT))
+    {
+        // master
+        if (pI2CHandle->mode == I2C_MODE_MASTER)
+        {
+            I2C_HandleAFMaster(pI2CHandle);
+        }
+
+        // slave
+        else if (pI2CHandle->mode == I2C_MODE_SLAVE)
+        {
+            I2C_HandleAFSlave(pI2CHandle);
+    }
+
+        return;
+    }
 }

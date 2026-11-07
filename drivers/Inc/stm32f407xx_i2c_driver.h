@@ -77,6 +77,8 @@ typedef enum
     I2C_EVT_ARLO                = 5U,
     I2C_EVT_NACK                = 6U,
     I2C_EVT_SLAVE_ADDR_MATCH    = 7U,
+    I2C_EVT_OVR                 = 8U,
+    I2C_EVT_TIMEOUT             = 9U
 } I2C_event_t;
 
 // ====================== I2C SCL-speed enum =============================
