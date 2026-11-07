@@ -1880,18 +1880,25 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
  * @details
  * TODO
  *
- * @param[in] TODO		TODO
+ * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
  *
  * @note	This ISR is used for both master and slave mode I2C. 
  ***************************************************************************/
-status_t I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
+void I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
 {
     // Validate pointers
     if (!pI2CHandle || !pI2CHandle->pI2Cx ||
         !I2C_IsValidInstance(pI2CHandle->pI2Cx))
-        return STATUS_INVALID_PARAM;
+        return;
+
+    if (pI2CHandle->mode != I2C_MODE_MASTER &&
+        pI2CHandle->mode != I2C_MODE_SLAVE)
+    {
+        I2C_EnterRecoveryRequired(pI2CHandle);
+        return;
+    }
 
     // cache registers
     uint32_t SR1 = pI2CHandle->pI2Cx->SR1;
@@ -1901,12 +1908,30 @@ status_t I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
     if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
         SR1 & (1U << I2C_SR1_SB_BIT))
     {
-        I2C_HandleSB(pI2CHandle);
+        if (pI2CHandle->mode != I2C_MODE_MASTER)
+        {
+            I2C_EnterRecoveryRequired(pI2CHandle);
+            return;
+        }
+        I2C_HandleSBMaster(pI2CHandle);
+        return;
     }
 
-    // update cached registers
-    SR1 = pI2CHandle->pI2Cx->SR1;
-    CR2 = pI2CHandle->pI2Cx->CR2;
+    // Handle STOPF interrupt (SLAVE-ONLY)
+    // set when slave detects a stop after an ACK
+    // handle STOPF before ADDR to finish previous
+    // transfer before starting a new one
+    if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
+        SR1 & (1U << I2C_SR1_STOPF_BIT))
+    {
+        if (pI2CHandle->mode != I2C_MODE_SLAVE)
+        {
+            I2C_EnterRecoveryRequired(pI2CHandle);
+            return;
+        }
+        I2C_HandleSTOPFSlave(pI2CHandle);
+        return;
+    }
 
     // Handle ADDR interrupt
     // Master:  Address successfully sent
@@ -1914,62 +1939,65 @@ status_t I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle)
     if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
         SR1 & (1U << I2C_SR1_ADDR_BIT))
     {
-        I2C_HandleADDR(pI2CHandle);
+        // master
+        if (pI2CHandle->mode == I2C_MODE_MASTER)
+            I2C_HandleADDRMaster(pI2CHandle);
+
+        // slave
+        else if (pI2CHandle->mode == I2C_MODE_SLAVE)
+            I2C_HandleADDRSlave(pI2CHandle);
+
+        return;
     }
-
-    // Update handle mode field
-    pI2CHandle->mode =  I2C_GetFlag(pI2CHandle->pI2Cx, I2C_MSL_FLAG) ?
-                        I2C_MODE_MASTER : I2C_MODE_SLAVE;
-
-    // update cached registers
-    SR1 = pI2CHandle->pI2Cx->SR1;
-    CR2 = pI2CHandle->pI2Cx->CR2;
 
     // Handle BTF interrupt
     if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
         SR1 & (1U << I2C_SR1_BTF_BIT))
     {
-        I2C_HandleBTF(pI2CHandle);
+        // master
+        if (pI2CHandle->mode == I2C_MODE_MASTER)
+        {   
+            I2C_HandleBTFMaster(pI2CHandle);
     }
 
-    // update cached registers
-    SR1 = pI2CHandle->pI2Cx->SR1;
-    CR2 = pI2CHandle->pI2Cx->CR2;
+        // slave
+        else if (pI2CHandle->mode == I2C_MODE_SLAVE)
+            I2C_HandleBTFSlave(pI2CHandle);
+
+        return;
+    }
 
     // handle TxE interrupt
     if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
         CR2 & (1U << I2C_CR2_ITBUFEN_BIT) &&
         SR1 & (1U << I2C_SR1_TxE_BIT))
     {
-        I2C_HandleTxE(pI2CHandle);
+        // master
+        if (pI2CHandle->mode == I2C_MODE_MASTER)
+            I2C_HandleTxEMaster(pI2CHandle);
+        // slave
+        else if (pI2CHandle->mode == I2C_MODE_SLAVE)
+            I2C_HandleTxESlave(pI2CHandle);
+        
+        return;
     }
-
-    // update cached registers
-    SR1 = pI2CHandle->pI2Cx->SR1;
-    CR2 = pI2CHandle->pI2Cx->CR2;
 
     // Handle RxNE interrupt
     if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
         CR2 & (1U << I2C_CR2_ITBUFEN_BIT) &&
         SR1 & (1U << I2C_SR1_RxNE_BIT))
     {
-        I2C_HandleRxNE(pI2CHandle);
-    }
+        // master
+        if (pI2CHandle->mode == I2C_MODE_MASTER)
+            I2C_HandleRxNEMaster(pI2CHandle);
+        // slave
+        else if (pI2CHandle->mode == I2C_MODE_SLAVE)
+            I2C_HandleRxNESlave(pI2CHandle);
 
-    // update cached registers
-    SR1 = pI2CHandle->pI2Cx->SR1;
-    CR2 = pI2CHandle->pI2Cx->CR2;
-
-    // Handle STOPF interrupt (SLAVE-ONLY)
-    // set when slave detects a stop after an ACK
-    // this is handled after RxNE to not lose the final byte
-    if (CR2 & (1U << I2C_CR2_ITEVTEN_BIT) &&
-        SR1 & (1U << I2C_SR1_STOPF_BIT))
-    {
-        I2C_HandleSTOPF(pI2CHandle);
+        return;
     }
     
-    return STATUS_OK;
+    return;
 }
 
 /**************************************************************************
