@@ -614,6 +614,9 @@ status_t I2C_Init(I2C_handle_t *pI2CHandle)
     // ================ Enable Peripheral Clock ================
     I2C_PeriClkCtl(pI2CHandle->pI2Cx, ENABLE);
 
+    // ================ Disable Interrupts ================
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
+
     // ================ Disable I2C Peripheral ================
     pI2CHandle->pI2Cx->CR1 &= ~(1U << I2C_CR1_PE_BIT);
 
@@ -676,6 +679,15 @@ status_t I2C_Init(I2C_handle_t *pI2CHandle)
     pI2CHandle->pI2Cx->TRISE &= ~(0x3F);
     pI2CHandle->pI2Cx->TRISE |= (tempreg & 0x3F);
     tempreg = 0;
+
+    // ================ Initialize Interrupt State ================
+    pI2CHandle->pBuffer         = NULL;
+    pI2CHandle->transferSize    = 0U;
+    pI2CHandle->remaining       = 0U;
+    pI2CHandle->targetAddr      = 0x00U;
+    pI2CHandle->Sr              = I2C_SR_DI;
+    pI2CHandle->mode            = I2C_MODE_SLAVE;
+    pI2CHandle->TxRxState       = I2C_READY;
 
     // ================ Enable I2C Peripheral ================
     pI2CHandle->pI2Cx->CR1 |= (1U << I2C_CR1_PE_BIT);
@@ -1187,9 +1199,8 @@ static void I2C_CloseTransferSlave(I2C_handle_t *pI2CHandle)
     // leave event/error interrupts enabled for future addr matches
     pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
             
-    // clean handle state
-    pI2CHandle->TxRxState       = I2C_READY;
-    pI2CHandle->targetAddr      = 0x00U;
+    // Update State
+    pI2CHandle->TxRxState       = I2C_LISTENING;
 }
 
 /**************************************************************************
@@ -2035,6 +2046,52 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
     // Enable interrupts
     // first unconditionally clears ITBUFEN, and then sets it according to its value in mask
     pI2CHandle->pI2Cx->CR2 = (pI2CHandle->pI2Cx->CR2 & ~(1U << I2C_CR2_ITBUFEN_BIT)) | mask;
+
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		I2C_SlaveListenIT
+ *
+ * @brief	Enables interrupt-driven I2C slave listening.
+ *
+ * @details
+ * Requires an initialized handle in I2C_READY state. Configures the
+ * handle for slave operation, updates its state to I2C_LISTENING, and 
+ * enables error/event interrupts. Buffer interrupts are disabled until
+ * after a matched address is read on the I2C bus.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ *
+ * @return	STATUS_OK: Slave listening enabled.
+ *			STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_BUSY: The passed handle is not in I2C_READY state.
+ ***************************************************************************/
+status_t I2C_SlaveListenIT(I2C_handle_t *pI2CHandle)
+{
+    // Validate pointers
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // ensure handle is free
+    if (pI2CHandle->TxRxState != I2C_READY)
+        return STATUS_BUSY;
+    
+    // Initialize interrupt state in handle
+    pI2CHandle->pBuffer         = NULL;
+    pI2CHandle->remaining       = 0U;
+    pI2CHandle->transferSize    = 0U;
+    pI2CHandle->targetAddr      = 0x00U;        // Master interrupt state (don't cares)
+    pI2CHandle->Sr              = I2C_SR_DI;    // Master interrupt state (don't cares)
+    pI2CHandle->mode            = I2C_MODE_SLAVE;
+    pI2CHandle->TxRxState       = I2C_LISTENING;
+
+    // Enable error & event interrupts and disable buffer interrupts
+    pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
+    pI2CHandle->pI2Cx->CR2 |= 
+        (1U << I2C_CR2_ITEVTEN_BIT) |
+        (1U << I2C_CR2_ITERREN_BIT);
 
     return STATUS_OK;
 }

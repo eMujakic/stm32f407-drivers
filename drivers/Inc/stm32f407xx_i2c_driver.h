@@ -20,6 +20,7 @@
 #define I2C_BUSY_IN_RX          1U
 #define I2C_BUSY_IN_TX          2U
 #define I2C_RECOVERY_REQUIRED   3U
+#define I2C_LISTENING           4U // state when a slave is listening for matching addrs but not busy
 
 // ====================== Repeated-Start Macros ======================
 #define I2C_SR_EN   ENABLE
@@ -145,12 +146,6 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
     uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
     uint8_t SR);                                                    // Receives data from slave as master.
 
-// slave transfer APIs
-void I2C_SlaveSendData(I2C_handle_t *pI2CHandle,
-    uint8_t data);                                                  // Sends one-byte of data as a slave.
-
-uint8_t I2C_SlaveReceiveData(I2C_handle_t *pI2CHandle);             // Reads one-byte of data as a slave.
-
 // control APIs
 status_t I2C_PeriClkCtl(I2C_reg_t *pI2Cx, uint8_t enable);          // Enables/disables the clock for a given I2C base addr
 status_t I2C_PeripheralControl(I2C_reg_t *pI2Cx, uint8_t enable);   // Enables or disables PE bit in I2C_CR1 register
@@ -162,8 +157,9 @@ status_t I2C_WaitForFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag,         // Spins unt
     uint8_t val);
 
 
-// Interrupt APIs
+// ===================== Interrupt APIs =====================
 
+// Master interrupt APIs
 status_t I2C_MasterSendDataIT(I2C_handle_t *pI2CHandle,               
     uint8_t *pTxBuffer, uint32_t len, uint8_t slaveAddr,
     uint8_t SR);                                                    // Sends data to slave as master (non-blocking)
@@ -172,6 +168,16 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
     uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
     uint8_t SR);                                                    // Receives data from slave as master (non-blocking)
 
+// Slave interrupt APIs
+status_t I2C_SlaveListenIT(I2C_handle_t *pI2CHandle);               // Enables event and error interrupts for slave I2C
+
+status_t I2C_SlaveSendDataIT(I2C_handle_t *pI2CHandle,
+    uint8_t *pTxBuffer, uint32_t len);                              // Sends data as a slave (interrupt-driven)
+
+status_t I2C_SlaveReceiveDataIT(I2C_handle_t *pI2CHandle,
+    uint8_t *pRxBuffer, uint32_t len);                              // Receives data as a slave (interrupt-driven)
+
+// IRQ Handling APIs
 void I2C_IRQHandling_EV(I2C_handle_t *pI2CHandle);                  // Dispatcher for event interrupts.
 void I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle);                 // Dispatcher for error interrupts.
 
