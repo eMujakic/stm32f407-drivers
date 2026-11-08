@@ -2216,3 +2216,9 @@ void I2C_IRQHandling_ERR(I2C_handle_t *pI2CHandle)
         return;
     }
 }
+
+__weak void I2C_ApplicationEventCallback(I2C_handle_t *pHandle, I2C_event_t event)
+{
+    (void) pHandle;
+    (void) event;
+}
