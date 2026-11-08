@@ -136,6 +136,7 @@ status_t I2C_ConfigInit(I2C_config_t *pConfig);					    // Sets I2C_config_t str
 status_t I2C_Init(I2C_handle_t *pI2CHandle);						// Configures an I2C pin according to I2C_config_t struct
 status_t I2C_Reset(I2C_reg_t *pI2Cx);								// Resets a I2C peripheral to default register values
 
+// Master transfer APIs
 status_t I2C_MasterSendData(I2C_handle_t *pI2CHandle,               
     uint8_t *pTxBuffer, uint32_t len, uint8_t slaveAddr,
     uint8_t SR);                                                    // Sends data to slave as master.
@@ -144,12 +145,18 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
     uint8_t *pRxBuffer, uint32_t len, uint8_t slaveAddr,
     uint8_t SR);                                                    // Receives data from slave as master.
 
+// slave transfer APIs
+void I2C_SlaveSendData(I2C_handle_t *pI2CHandle,
+    uint8_t data);                                                  // Sends one-byte of data as a slave.
+
+uint8_t I2C_SlaveReceiveData(I2C_handle_t *pI2CHandle);             // Reads one-byte of data as a slave.
+
+// control APIs
 status_t I2C_PeriClkCtl(I2C_reg_t *pI2Cx, uint8_t enable);          // Enables/disables the clock for a given I2C base addr
-
 status_t I2C_PeripheralControl(I2C_reg_t *pI2Cx, uint8_t enable);   // Enables or disables PE bit in I2C_CR1 register
-
 status_t I2C_SoftwareReset(I2C_reg_t *pI2Cx);                       // Performs a software reset on the I2C peripheral
 
+// flag APIs
 uint8_t  I2C_GetFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag);            // Returns value of SR1/SR2 at flag position
 status_t I2C_WaitForFlag(I2C_reg_t *pI2Cx, I2C_flag_t flag,         // Spins until flag==val or timeout occurs
     uint8_t val);

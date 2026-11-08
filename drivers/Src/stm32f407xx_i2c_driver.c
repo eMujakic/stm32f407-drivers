@@ -1077,6 +1077,48 @@ status_t I2C_MasterReceiveData(I2C_handle_t *pI2CHandle,
     return STATUS_OK;
 }
 
+/**************************************************************************
+ * @fn		I2C_SlaveSendData
+ *
+ * @brief	Writes one byte of data to data register.
+ * 
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ * @param[in] data          Byte of data to store in DR.
+ *
+ * @return	None.
+ ***************************************************************************/
+void I2C_SlaveSendData(I2C_handle_t *pI2CHandle,
+    uint8_t data)
+{
+    // ========== Validate Inputs ==========
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return;
+
+    // write to data-register
+    pI2CHandle->pI2Cx->DR = data;
+}
+
+/**************************************************************************
+ * @fn		I2C_SlaveReceiveData
+ *
+ * @brief	Returns value of data register.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ *
+ * @return	Value stored in data-register.
+ ***************************************************************************/
+uint8_t I2C_SlaveReceiveData(I2C_handle_t *pI2CHandle)
+{
+    // ========== Validate Inputs ==========
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return 0U;
+
+    // return data-register
+    return (uint8_t) pI2CHandle->pI2Cx->DR;
+}
+
 // ***************************************************************
 // ******************* INTERRUPT EVENT HELPERS *******************
 // ***************************************************************
