@@ -2092,6 +2092,153 @@ status_t I2C_SlaveListenIT(I2C_handle_t *pI2CHandle)
     pI2CHandle->pI2Cx->CR2 |= 
         (1U << I2C_CR2_ITEVTEN_BIT) |
         (1U << I2C_CR2_ITERREN_BIT);
+    
+    // enable ACKing
+    I2C_ACKControl(pI2CHandle->pI2Cx, ENABLE);
+
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		I2C_SlaveStopListenIT
+ *
+ * @brief	Disables I2C slave address listening.
+ *
+ * @details
+ * Requires an initialized handle in I2C_LISTENING state. If the peripheral
+ * attached to the handle is busy, this API returns STATUS_BUSY.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ *
+ * @return	STATUS_OK: Slave listening disabled.
+ *			STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_BUSY: The passed handle is not in I2C_LISTENING state.
+ ***************************************************************************/
+status_t I2C_SlaveStopListenIT(I2C_handle_t *pI2CHandle)
+{
+    // Validate pointers
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // ensure handle is not busy
+    if (pI2CHandle->TxRxState != I2C_LISTENING)
+        return STATUS_BUSY;
+    
+    // disable ACKing
+    I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
+
+    // TODO: Check for pending ADDR
+
+    // Disables all interrupts
+    I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
+    
+    // Update interrupt state in handle
+    pI2CHandle->pBuffer         = NULL;
+    pI2CHandle->remaining       = 0U;
+    pI2CHandle->transferSize    = 0U;
+    pI2CHandle->targetAddr      = 0x00U;        // Master interrupt state (don't cares)
+    pI2CHandle->Sr              = I2C_SR_DI;    // Master interrupt state (don't cares)
+    pI2CHandle->mode            = I2C_MODE_SLAVE;
+    pI2CHandle->TxRxState       = I2C_READY;
+
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		I2C_SlaveSendDataIT
+ *
+ * @brief	Registers buffer and length data for interrupt-driven slave
+ *          transmission.
+ *
+ * @details
+ * Stores the transmit buffer pointer and counters. The handle must be
+ * in slave mode and I2C_BUSY_IN_TX state.
+ * This API does not transmit data or enable interrupts. It only
+ * registers the buffer.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ * @param[in] pTxBuffer		Pointer to Tx buffer.
+ * @param[in] len		    Number of bytes to send.
+ *
+ * @return	STATUS_OK: Buffer and length data registered in handle.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_BUSY: The handle was not a slave-in-Tx.
+ *
+ * @note	This should only be called as a response to the 
+ *          I2C_EVT_SLAVE_ADDR_MATCH event when the transfer direction
+ *          is slave-transmit.
+ ***************************************************************************/
+status_t I2C_SlaveSendDataIT(I2C_handle_t *pI2CHandle,
+    uint8_t *pTxBuffer, uint32_t len)
+{
+    // Validate pointers
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // validate inputs
+    if (pTxBuffer == NULL)
+        return STATUS_INVALID_PARAM;
+
+    // ensure correct transmit direction
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX ||
+        pI2CHandle->mode != I2C_MODE_SLAVE)
+        return STATUS_BUSY;
+
+    // Update interrupt state in handle
+    pI2CHandle->pBuffer         = pTxBuffer;
+    pI2CHandle->remaining       = len;
+    pI2CHandle->transferSize    = len;
+
+    return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		I2C_SlaveReceiveDataIT
+ *
+ * @brief	Registers buffer and length data for interrupt-driven slave
+ *          reception..
+ *
+ * @details
+ * Stores the receive buffer pointer and counters. The handle must be
+ * in slave mode and I2C_BUSY_IN_RX state.
+ * This API does not receive data or enable interrupts. It only
+ * registers the buffer.
+ *
+ * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
+ * @param[in] pRxBuffer		Pointer to Rx buffer.
+ * @param[in] len		    Number of bytes to receive.
+ *
+ * @return	STATUS_OK: Buffer and length data registered in handle.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_BUSY: The handle was not a slave-in-Rx.
+ *
+ * @note	This should only be called as a response to the 
+ *          I2C_EVT_SLAVE_ADDR_MATCH event when the transfer is
+ *          slave-receive.
+ ***************************************************************************/
+status_t I2C_SlaveReceiveDataIT(I2C_handle_t *pI2CHandle,
+    uint8_t *pRxBuffer, uint32_t len)
+{
+    // Validate pointers
+    if (!pI2CHandle || !pI2CHandle->pI2Cx ||
+        !I2C_IsValidInstance(pI2CHandle->pI2Cx))
+        return STATUS_INVALID_PARAM;
+
+    // validate inputs
+    if (pRxBuffer == NULL)
+        return STATUS_INVALID_PARAM;
+
+    // ensure correct receive direction
+    if (pI2CHandle->TxRxState != I2C_BUSY_IN_RX ||
+        pI2CHandle->mode != I2C_MODE_SLAVE)
+        return STATUS_BUSY;
+
+    // Update interrupt state in handle
+    pI2CHandle->pBuffer         = pRxBuffer;
+    pI2CHandle->remaining       = len;
+    pI2CHandle->transferSize    = len;
 
     return STATUS_OK;
 }

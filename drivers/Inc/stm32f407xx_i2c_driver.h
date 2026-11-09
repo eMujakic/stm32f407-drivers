@@ -171,6 +171,8 @@ status_t I2C_MasterReceiveDataIT(I2C_handle_t *pI2CHandle,
 // Slave interrupt APIs
 status_t I2C_SlaveListenIT(I2C_handle_t *pI2CHandle);               // Enables event and error interrupts for slave I2C
 
+status_t I2C_SlaveStopListenIT(I2C_handle_t *pI2CHandle);           // Disables interrupts for Slave listening for address matches
+
 status_t I2C_SlaveSendDataIT(I2C_handle_t *pI2CHandle,
     uint8_t *pTxBuffer, uint32_t len);                              // Sends data as a slave (interrupt-driven)
 
