@@ -1200,7 +1200,7 @@ static void I2C_CloseTransferSlave(I2C_handle_t *pI2CHandle)
     pI2CHandle->pI2Cx->CR2 &= ~(1U << I2C_CR2_ITBUFEN_BIT);
             
     // Update State
-    pI2CHandle->TxRxState       = I2C_LISTENING;
+    pI2CHandle->TxRxState = I2C_LISTENING;
 }
 
 /**************************************************************************
@@ -1215,11 +1215,21 @@ static void I2C_CloseTransferSlave(I2C_handle_t *pI2CHandle)
  * @param[in] pI2CHandle    Pointer to handle for I2C peripheral.
  *
  * @return	None.
+ * 
+ * @note    An I2C_EVT_INVALID_STATE event is sent once per transition 
+ *          into the I2C_RECOVERY_REQUIRED state. It is the user's
+ *          responsibility to recover the peripheral successfully if it
+ *          wishes to get further I2C_EVT_INVALID_STATE events.
  ***************************************************************************/
 static void I2C_EnterRecoveryRequired(I2C_handle_t *pI2CHandle)
 {
     // disable interrupts
     I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
+
+    // don't issue duplicate recovery callbacks
+    if (pI2CHandle->TxRxState == I2C_RECOVERY_REQUIRED)
+        return;
+
     // set handle state
     pI2CHandle->TxRxState = I2C_RECOVERY_REQUIRED;
     // notify user
@@ -1369,10 +1379,7 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
     {
         I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
 
-        // ensure valid state after callback
-        if (pI2CHandle->TxRxState == I2C_RECOVERY_REQUIRED)
-            return;
-        
+        // validate state after callback
         if(pI2CHandle->TxRxState != I2C_BUSY_IN_RX)
         {
             I2C_EnterRecoveryRequired(pI2CHandle);
@@ -1383,10 +1390,7 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
     {
         I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
 
-        // ensure valid state after callback
-        if (pI2CHandle->TxRxState == I2C_RECOVERY_REQUIRED)
-            return;
-        
+        // validate state after callback
         if(pI2CHandle->TxRxState != I2C_BUSY_IN_TX)
         {
             I2C_EnterRecoveryRequired(pI2CHandle);
@@ -1413,8 +1417,7 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
     if ((pI2CHandle->TxRxState != state) ||
         pI2CHandle->pBuffer == NULL)
     {
-        if (pI2CHandle->TxRxState != I2C_RECOVERY_REQUIRED)
-            I2C_EnterRecoveryRequired(pI2CHandle);
+        I2C_EnterRecoveryRequired(pI2CHandle);
         return;
     }
     
@@ -1572,7 +1575,7 @@ static void I2C_HandleSTOPFSlave(I2C_handle_t *pI2CHandle)
     // validate state
     if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX &&
         pI2CHandle->TxRxState != I2C_BUSY_IN_RX &&
-        pI2CHandle->TxRxState != I2C_READY)
+        pI2CHandle->TxRxState != I2C_LISTENING)
     {
         I2C_EnterRecoveryRequired(pI2CHandle);
         return;
@@ -1864,24 +1867,19 @@ static void I2C_HandleAFMaster(I2C_handle_t *pI2CHandle)
  ***************************************************************************/
 static void I2C_HandleAFSlave(I2C_handle_t *pI2CHandle)
 {
-   
+    // clear AF flag
+    pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
+
     // if slave-in-tx
     if( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
     {
-        // clear AF flag
-        pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
-
         // Close transfer and notify completion
         I2C_CloseTransferSlave(pI2CHandle);
         I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
+        return;
     }
-    else
-    {
-        // clear AF flag
-        pI2CHandle->pI2Cx->SR1 &= ~(1U << I2C_SR1_AF_BIT);
-
-        I2C_EnterRecoveryRequired(pI2CHandle);
-    }
+    // invalid state
+    I2C_EnterRecoveryRequired(pI2CHandle);
 }
 
 /**************************************************************************
