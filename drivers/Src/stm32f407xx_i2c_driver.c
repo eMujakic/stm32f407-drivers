@@ -1348,7 +1348,7 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
     // invalid state
     if (pI2CHandle->TxRxState != I2C_BUSY_IN_TX &&
         pI2CHandle->TxRxState != I2C_BUSY_IN_RX &&
-        pI2CHandle->TxRxState != I2C_READY)
+        pI2CHandle->TxRxState != I2C_LISTENING)
     {
         I2C_EnterRecoveryRequired(pI2CHandle);
         return;
@@ -1364,6 +1364,41 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
             I2C_HandleRxNESlave(pI2CHandle);
     }
 
+    // notify application of finished transfer
+    if( pI2CHandle->TxRxState == I2C_BUSY_IN_RX )
+    {
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
+
+        // ensure valid state after callback
+        if (pI2CHandle->TxRxState == I2C_RECOVERY_REQUIRED)
+            return;
+        
+        if(pI2CHandle->TxRxState != I2C_BUSY_IN_RX)
+        {
+            I2C_EnterRecoveryRequired(pI2CHandle);
+            return;
+        }
+    }
+    else if( pI2CHandle->TxRxState == I2C_BUSY_IN_TX )
+    {
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_TX_DONE);
+
+        // ensure valid state after callback
+        if (pI2CHandle->TxRxState == I2C_RECOVERY_REQUIRED)
+            return;
+        
+        if(pI2CHandle->TxRxState != I2C_BUSY_IN_TX)
+        {
+            I2C_EnterRecoveryRequired(pI2CHandle);
+            return;
+        }
+    }
+
+    // clear old handle data
+    pI2CHandle->pBuffer = NULL;
+    pI2CHandle->remaining = 0U;
+    pI2CHandle->transferSize = 0U;
+
     I2C_ClearADDRFlag(pI2CHandle->pI2Cx);
 
     uint32_t TRA = (pI2CHandle->pI2Cx->SR2 >> I2C_SR2_TRA_BIT) &0x1U;
@@ -1371,13 +1406,15 @@ static void I2C_HandleADDRSlave(I2C_handle_t *pI2CHandle)
 
     pI2CHandle->TxRxState = state;
 
+    // notify user of address match
     I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_SLAVE_ADDR_MATCH);
 
     // ensure valid handle after callback
     if ((pI2CHandle->TxRxState != state) ||
-        (pI2CHandle->pBuffer == NULL && pI2CHandle->remaining > 0U))
+        pI2CHandle->pBuffer == NULL)
     {
-        I2C_EnterRecoveryRequired(pI2CHandle);
+        if (pI2CHandle->TxRxState != I2C_RECOVERY_REQUIRED)
+            I2C_EnterRecoveryRequired(pI2CHandle);
         return;
     }
     
