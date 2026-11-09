@@ -154,8 +154,8 @@ void I2C_ApplicationEventCallback(I2C_handle_t *pHandle, I2C_event_t event)
         if (pHandle->TxRxState == I2C_BUSY_IN_TX)
         {
             if (cmd == GET_LEN_CMD)
-            
                 I2C_SlaveSendDataIT(&i2c1, &message_length, 1U); // send message length
+                
             else if (cmd == GET_DATA_CMD)
                 I2C_SlaveSendDataIT(&i2c1, TxBuffer, message_length); // send message
         }
