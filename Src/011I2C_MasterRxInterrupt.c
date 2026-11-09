@@ -143,7 +143,6 @@ static void reset_i2c()
 {
     I2C_SoftwareReset(i2c1.pI2Cx);
     I2C_Init(&i2c1);
-    i2c1.TxRxState = I2C_READY;
     failure = 0U;
 }
 
