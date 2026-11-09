@@ -1544,6 +1544,9 @@ static void I2C_HandleSTOPFSlave(I2C_handle_t *pI2CHandle)
     {
         while(pI2CHandle->pI2Cx->SR1 & (1U << I2C_SR1_RxNE_BIT))
             I2C_HandleRxNESlave(pI2CHandle);
+        
+        // notify Rx-done
+        I2C_ApplicationEventCallback(pI2CHandle, I2C_EVT_RX_DONE);
     }
     // Close transfer and notify user of STOP
     I2C_CloseTransferSlave(pI2CHandle);
@@ -1784,7 +1787,7 @@ static void I2C_HandleARLO(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		I2C_HandleAF
+ * @fn		I2C_HandleAFMaster
  *
  * @brief	Handles acknowledgement-fail interrupts for master.
  * 
@@ -1810,7 +1813,7 @@ static void I2C_HandleAFMaster(I2C_handle_t *pI2CHandle)
 }
 
 /**************************************************************************
- * @fn		I2C_HandleAF
+ * @fn		I2C_HandleAFSlave
  *
  * @brief	Handles acknowledgement-fail interrupts for slave.
  *
@@ -2114,6 +2117,8 @@ status_t I2C_SlaveStopListenIT(I2C_handle_t *pI2CHandle)
         !I2C_IsValidInstance(pI2CHandle->pI2Cx))
         return STATUS_INVALID_PARAM;
 
+    // TODO: Critical Section needed here
+
     // ensure handle is not busy
     if (pI2CHandle->TxRxState != I2C_LISTENING)
         return STATUS_BUSY;
@@ -2121,7 +2126,13 @@ status_t I2C_SlaveStopListenIT(I2C_handle_t *pI2CHandle)
     // disable ACKing
     I2C_ACKControl(pI2CHandle->pI2Cx, DISABLE);
 
-    // TODO: Check for pending ADDR
+    // check for pending ADDR/STOPF
+    if( I2C_GetFlag(pI2CHandle->pI2Cx, I2C_ADDR_FLAG) ||
+        I2C_GetFlag(pI2CHandle->pI2Cx, I2C_STOPF_FLAG) )
+    {
+        I2C_ACKControl(pI2CHandle->pI2Cx, ENABLE);
+        return STATUS_BUSY;
+    }
 
     // Disables all interrupts
     I2C_InterruptControl(pI2CHandle->pI2Cx, DISABLE);
@@ -2134,6 +2145,8 @@ status_t I2C_SlaveStopListenIT(I2C_handle_t *pI2CHandle)
     pI2CHandle->Sr              = I2C_SR_DI;    // Master interrupt state (don't cares)
     pI2CHandle->mode            = I2C_MODE_SLAVE;
     pI2CHandle->TxRxState       = I2C_READY;
+
+    // TODO: end critical section
 
     return STATUS_OK;
 }
@@ -2201,7 +2214,7 @@ status_t I2C_SlaveSendDataIT(I2C_handle_t *pI2CHandle,
  *
  * @param[in] pI2CHandle    Pointer to handle for an I2C peripheral.
  * @param[in] pRxBuffer		Pointer to Rx buffer.
- * @param[in] len		    Number of bytes to receive.
+ * @param[in] len		    Buffer capacity.
  *
  * @return	STATUS_OK: Buffer and length data registered in handle.
  *          STATUS_INVALID_PARAM: An invalid argument was passed.
