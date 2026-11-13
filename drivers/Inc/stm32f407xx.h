@@ -269,6 +269,17 @@ typedef struct
 	volatile uint32_t FLTR;								// Configure noise filters
 } I2C_reg_t;
 
+// ======================= USART register struct =======================
+typedef struct
+{
+	volatile uint32_t SR;								// Status register
+	volatile uint32_t DR;								// Data register
+	volatile uint32_t BRR;								// Baud-rate register
+	volatile uint32_t CR1;								// Control register 1 
+	volatile uint32_t CR2;								// Control register 2 
+	volatile uint32_t CR3;								// Control register 3 
+	volatile uint32_t GTPR;								// Guard time and prescaler register
+} USART_reg_t;
 
 /***********************************************************************
  * 						Type-Casted Register Macros
@@ -297,6 +308,13 @@ typedef struct
 #define I2C1					( (I2C_reg_t*)		I2C1_BASE_ADDR )
 #define I2C2					( (I2C_reg_t*)		I2C2_BASE_ADDR )
 #define I2C3					( (I2C_reg_t*)		I2C3_BASE_ADDR )
+
+#define USART1					( (USART_reg_t*)	USART1_BASE_ADDR )
+#define USART2					( (USART_reg_t*)	USART2_BASE_ADDR )
+#define USART3					( (USART_reg_t*)	USART3_BASE_ADDR )
+#define UART4					( (USART_reg_t*)	UART4_BASE_ADDR )
+#define UART5					( (USART_reg_t*)	UART5_BASE_ADDR )
+#define USART6					( (USART_reg_t*)	USART6_BASE_ADDR )
 
 #define RCC						( (RCC_reg_t*)		RCC_BASE_ADDR )
 
@@ -366,6 +384,12 @@ typedef struct
 #define UART5_PCLK_DI()				( RCC->APB1ENR &= ~( 1 << 20 ) )
 #define USART6_PCLK_DI()			( RCC->APB2ENR &= ~( 1 << 5 ) )
 
+#define USART1_RESET()		do{ (  RCC->APB2RSTR |= ( 1U << ( 4 ) ) ); (  RCC->APB2RSTR &= ~( 1U << ( 4 ))  );  } while(0)
+#define USART2_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 17 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 17 ))  );  } while(0)
+#define USART3_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 18 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 18 ))  );  } while(0)
+#define UART4_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 19 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 19 ))  );  } while(0)
+#define UART5_RESET()		do{ (  RCC->APB1RSTR |= ( 1U << ( 20 ) ) ); (  RCC->APB1RSTR &= ~( 1U << ( 20 ))  );  } while(0)
+#define USART6_RESET()		do{ (  RCC->APB2RSTR |= ( 1U << ( 5 ) ) ); (  RCC->APB2RSTR &= ~( 1U << ( 5 ))  );  } while(0)
 
 /***********************************************************************
  *
@@ -487,6 +511,57 @@ typedef struct
 
 #define I2C_FLTR_DNF_BIT		0U
 #define I2C_FLTR_ANOFF_BIT		4U
+
+// ======================= 	USART Bit-Position Macros =======================
+#define USART_SR_PE_BIT 		0U
+#define USART_SR_FE_BIT 		1U
+#define USART_SR_NF_BIT 		2U
+#define USART_SR_ORE_BIT 		3U
+#define USART_SR_IDLE_BIT 		4U
+#define USART_SR_RXNE_BIT 		5U
+#define USART_SR_TC_BIT 		6U
+#define USART_SR_TXE_BIT 		7U
+#define USART_SR_LBD_BIT 		8U
+#define USART_SR_CTS_BIT 		9U
+
+#define USART_CR1_SBK_BIT 		0U
+#define USART_CR1_RWU_BIT 		1U
+#define USART_CR1_RE_BIT 		2U
+#define USART_CR1_TE_BIT 		3U
+#define USART_CR1_IDLEIE_BIT 	4U
+#define USART_CR1_RXNEIE_BIT 	5U
+#define USART_CR1_TCIE_BIT 		6U
+#define USART_CR1_TXEIE_BIT 	7U
+#define USART_CR1_PEIE_BIT 		8U
+#define USART_CR1_PS_BIT 		9U
+#define USART_CR1_PCE_BIT 		10U
+#define USART_CR1_WAKE_BIT 		11U
+#define USART_CR1_M_BIT 		12U
+#define USART_CR1_UE_BIT 		13U
+#define USART_CR1_OVER8_BIT 	15U
+
+#define USART_CR2_ADD_BIT 		0U
+#define USART_CR2_LBDL_BIT 		5U
+#define USART_CR2_LBDIE_BIT 	6U
+#define USART_CR2_LBCL_BIT 		8U
+#define USART_CR2_CPHA_BIT 		9U
+#define USART_CR2_CPOL_BIT 		10U
+#define USART_CR2_CLKEN_BIT 	11U
+#define USART_CR2_STOP_BIT 		12U
+#define USART_CR2_LINEN_BIT 	14U
+
+#define USART_CR3_EIE_BIT 		0U
+#define USART_CR3_IREN_BIT 		1U
+#define USART_CR3_IRLP_BIT 		2U
+#define USART_CR3_HDSEL_BIT 	3U
+#define USART_CR3_NACK_BIT 		4U
+#define USART_CR3_SCEN_BIT 		5U
+#define USART_CR3_DMAR_BIT 		6U
+#define USART_CR3_DMAT_BIT 		7U
+#define USART_CR3_RTSE_BIT 		8U
+#define USART_CR3_CTSE_BIT 		9U
+#define USART_CR3_CTSIE_BIT 	10U
+#define USART_CR3_ONEBIT_BIT 	11U
 
 #include "stm32f407xx_gpio_driver.h"
 #include "stm32f407xx_spi_driver.h"
