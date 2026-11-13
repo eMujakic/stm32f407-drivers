@@ -117,6 +117,41 @@ status_t USART_PeriClkCtl(USART_reg_t *pUSARTx, uint8_t enable)
 }
 
 /**************************************************************************
+ * @fn		USART_PeripheralControl
+ *
+ * @brief	Enables/disables a USART peripheral.
+ *
+ * @details
+ * Sets the UE (USART-enable) bit in the peripheral's CR1 register.
+ *
+ * @param[in] pUSARTx   Pointer to a valid USART base address.
+ * @param[in] enable    Enable/Disable
+ *
+ * @return	STATUS_OK: Peripheral was successfully
+ *          enabled/disabled.
+ *          STATUS_INVALID_PARAM: Invalid argument was passed.
+ ***************************************************************************/
+status_t USART_PeripheralControl(USART_reg_t *pUSARTx, uint8_t enable)
+{
+    // validate inputs
+    if (!USART_IsValidInstance(pUSARTx))
+        return STATUS_INVALID_PARAM;
+    if (enable != ENABLE && enable != DISABLE)
+        return STATUS_INVALID_PARAM;
+    
+    if (enable == ENABLE)
+    {
+        pUSARTx->CR1 |= (1U << USART_CR1_UE_BIT);
+    }
+    else
+    {
+        pUSARTx->CR1 &= ~(1U << USART_CR1_UE_BIT);
+    }
+
+    return STATUS_OK;
+}
+
+/**************************************************************************
  * @fn		USART_ConfigInit
  *
  * @brief	Initializes USART config struct to reasonable default values.
