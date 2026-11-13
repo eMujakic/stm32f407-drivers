@@ -33,6 +33,23 @@ static inline uint8_t USART_IsValidInstance(USART_reg_t *pUSARTx)
     );
 }
 
+/**************************************************************************
+ * @fn		USART_IsUART
+ *
+ * @brief	Used to determine whether a base address is UART4/UART5.
+ *
+ * @param[in] pUSARTx   USART peripheral base address.
+ *
+ * @return	Boolean indicating whether passed pointer is UART4/UART5.
+ ***************************************************************************/
+static inline uint8_t USART_IsUART(USART_reg_t *pUSARTx)
+{
+    return(
+        (pUSARTx == UART4)  ||
+        (pUSARTx == UART5)
+    );
+}
+
 // ***************************************************************
 // ********************* API IMPLEMENTATIONS *********************
 // ***************************************************************
@@ -172,6 +189,56 @@ status_t USART_Reset(USART_reg_t *pUSARTx)
         return STATUS_INVALID_PARAM;
 
     return STATUS_OK;
+}
+
+/**************************************************************************
+ * @fn		USART_GetFlag
+ *
+ * @brief	Returns value of USART/UART flag.
+ *
+ * @param[in] pUSARTx   Pointer to USART base address.
+ * @param[in] flag	    Enum value of desired flag to read.
+ *
+ * @return	The value of flag in the peripheral's status register.
+ *
+ * @note	Returns 0U if invalid argument is passed.
+ ***************************************************************************/
+uint8_t USART_GetFlag(USART_reg_t *pUSARTx, USART_flag_t flag)
+{
+    // validate pointer
+    if (!pUSARTx || !USART_IsValidInstance(pUSARTx))
+        return 0U;
+
+    // UART4/UART5 does not support CTS flag
+    if (USART_IsUART(pUSARTx) &&
+        flag == USART_FLAG_CTS)
+        return 0U;
+
+    switch(flag)
+    {
+        case USART_FLAG_PE:
+            return ( (pUSARTx->SR >> USART_SR_PE_BIT) & 0x1U );
+        case USART_FLAG_FE:
+            return ( (pUSARTx->SR >> USART_SR_FE_BIT) & 0x1U );
+        case USART_FLAG_NF:
+            return ( (pUSARTx->SR >> USART_SR_NF_BIT) & 0x1U );
+        case USART_FLAG_ORE:
+            return ( (pUSARTx->SR >> USART_SR_ORE_BIT) & 0x1U );
+        case USART_FLAG_IDLE:
+            return ( (pUSARTx->SR >> USART_SR_IDLE_BIT) & 0x1U );
+        case USART_FLAG_RXNE:
+            return ( (pUSARTx->SR >> USART_SR_RXNE_BIT) & 0x1U );
+        case USART_FLAG_TC:
+            return ( (pUSARTx->SR >> USART_SR_TC_BIT) & 0x1U );
+        case USART_FLAG_TXE:
+            return ( (pUSARTx->SR >> USART_SR_TXE_BIT) & 0x1U );
+        case USART_FLAG_LBD:
+            return ( (pUSARTx->SR >> USART_SR_LBD_BIT) & 0x1U );
+        case USART_FLAG_CTS:
+            return ( (pUSARTx->SR >> USART_SR_CTS_BIT) & 0x1U );
+        default:
+            return 0U;
+    }
 }
 
 // ***************************************************************
