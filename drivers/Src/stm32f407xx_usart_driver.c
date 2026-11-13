@@ -249,3 +249,9 @@ uint8_t USART_GetFlag(USART_reg_t *pUSARTx, USART_flag_t flag)
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
 // ***************************************************************
+
+__weak void USART_ApplicationEventCallback(USART_handle_t *pHandle, USART_event_t event)
+{
+    (void) pHandle;
+    (void) event;
+}

@@ -23,6 +23,12 @@
 #define USART_BAUD_576000   576000U
 #define USART_BAUD_921600   921600U
 
+// ====================== USART event enum =============================
+typedef enum
+{
+    PLACEHOLDER = 0U
+} USART_event_t;
+
 // ====================== USART Flag enum =============================
 typedef enum
 {
@@ -128,5 +134,8 @@ status_t USART_PeriClkCtl(USART_reg_t *pUSARTx, uint8_t enable);    // Enables/d
 uint8_t  USART_GetFlag(USART_reg_t *pUSARTx, USART_flag_t flag);    // Returns value of a flag for a USART peripheral
 
 void USART_IRQHandling(USART_handle_t *pUSARTHandle);               // Dispatcher for USART interrupts
+
+void USART_ApplicationEventCallback(USART_handle_t *pHandle,
+                                  USART_event_t event);               // Weakly implemented, called by private driver interrupt handlers
 
 #endif /* INC_STM32F407XX_USART_DRIVER_H_ */
