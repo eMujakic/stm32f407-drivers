@@ -137,3 +137,48 @@ status_t USART_ConfigInit(USART_config_t *pConfig)
 
     return STATUS_OK;
 }
+
+/**************************************************************************
+ * @fn		USART_Reset
+ *
+ * @brief	Resets a USART peripheral.
+ * 
+ * @param[in] pUSARTx   Pointer to USART base address.
+ *
+ * @return	STATUS_OK: Peripheral was successfully reset.
+ *          STATUS_INVALID_PARAM: An invalid USART pointer was passed.
+ *
+ * @note	This does not disable the peripheral clock for the peripheral.
+ ***************************************************************************/
+status_t USART_Reset(USART_reg_t *pUSARTx)
+{
+    // validate pointer
+    if (!pUSARTx || !USART_IsValidInstance(pUSARTx))
+        return STATUS_INVALID_PARAM;
+
+    if (pUSARTx == USART1)
+        USART1_RESET();
+    else if (pUSARTx == USART2)
+        USART2_RESET();
+    else if (pUSARTx == USART3)
+        USART3_RESET();
+    else if (pUSARTx == UART4)
+        UART4_RESET();
+    else if (pUSARTx == UART5)
+        UART5_RESET();
+    else if (pUSARTx == USART6)
+        USART6_RESET();
+    else
+        return STATUS_INVALID_PARAM;
+
+    return STATUS_OK;
+}
+
+// ***************************************************************
+// ********************** INTERRUPT HELPERS **********************
+// ***************************************************************
+
+
+// ***************************************************************
+// **************** INTERRUPT API IMPLEMENTATIONS ****************
+// ***************************************************************
