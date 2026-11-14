@@ -50,6 +50,50 @@ static inline uint8_t USART_IsUART(USART_reg_t *pUSARTx)
     );
 }
 
+/**************************************************************************
+ * @fn		USART_WaitForRxNE
+ *
+ * @brief	Polls for RxNE while checking for errors.
+ *
+ * @param[in] pUSARTx   USART peripheral base address.
+ *
+ * @return	STATUS_OK: RxNE was set with no errors detected.
+ *          STATUS_ERROR: An error was detected.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *
+ * @note	This helper does not clear the error. The caller must void
+ *          DR to clear any error flags.
+ ***************************************************************************/
+static status_t USART_WaitForRxNE(USART_reg_t *pUSARTx)
+{
+    // validate arguments
+    if (!pUSARTx || !USART_IsValidInstance(pUSARTx))
+        return STATUS_INVALID_PARAM;
+    
+    uint32_t error_mask = ( (1U << USART_SR_PE_BIT) |
+                            (1U << USART_SR_FE_BIT) |
+                            (1U << USART_SR_NF_BIT) |
+                            (1U << USART_SR_ORE_BIT));
+    
+    uint32_t timeout = USART_TIMEOUT;
+    while(1)
+    {
+        uint32_t sr = pUSARTx->SR;
+
+        if (sr & error_mask)
+            return STATUS_ERROR;
+
+        // check desired flag
+        if (sr & (1U << USART_SR_RXNE_BIT))
+            break;
+            
+        // check timeout
+        if (timeout == 0U) return STATUS_TIMEOUT;
+        timeout--;
+    }
+    return STATUS_OK;
+}
+
 // ***************************************************************
 // ********************* API IMPLEMENTATIONS *********************
 // ***************************************************************
@@ -408,6 +452,87 @@ status_t USART_SendData(USART_handle_t *pUSARTHandle, uint8_t *pTxBuffer, uint32
 
     // wait for transmission complete
     return USART_WaitForFlag(pUSARTx, USART_FLAG_TC, SET);
+}
+
+/**************************************************************************
+ * @fn		USART_ReceiveData
+ *
+ * @brief	USART/UART blocking receive.
+ *
+ * @details
+ * Waits for RxNE before reading each data word. Performs error-aware
+ * polling. Payload width is determined by word-length and parity config.
+ *
+ * @param[in] pUSARTHandle	Pointer to USART handle.
+ * @param[in] pTxBuffer		Pointer to Rx buffer.
+ * @param[in] len	        Number of data words to receive.
+ *
+ * @return	STATUS_OK: All data words were successfully received.
+ *          STATUS_ERROR: Peripheral or receiver is disabled, or an
+ *          error was detected.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_TIMEOUT: Polling budget exceeded on RxNE.
+ *
+ * @note	len counts data words, not bytes. Data words may be 7, 8, or 9
+ *          bits each depending on word-length and parity configuration.
+ *          The buffer must provide enough space for len data-words.
+ ***************************************************************************/
+status_t USART_ReceiveData(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, uint32_t len)
+{
+    // validate args
+    if (!pRxBuffer ||
+        (len == 0) ||
+        !pUSARTHandle ||
+        !pUSARTHandle->pUSARTx ||
+        !USART_IsValidInstance(pUSARTHandle->pUSARTx)
+        )
+    {
+        return STATUS_INVALID_PARAM;
+    }
+
+    USART_reg_t *pUSARTx = pUSARTHandle->pUSARTx;
+
+    // ensure peripheral is enabled
+    if ( (pUSARTx->CR1 & (1U << USART_CR1_UE_BIT)) == 0U)
+        return STATUS_ERROR;
+    
+    // ensure receiver is enabled
+    if ( (pUSARTx->CR1 & (1U << USART_CR1_RE_BIT)) == 0U)
+        return STATUS_ERROR;
+
+    // extract M-bit (0 == 8-bit frame, 1 == 9-bit frame)
+    uint8_t M = (pUSARTx->CR1 >> USART_CR1_M_BIT) &0x1U;
+
+    // extract parity control (0 == disabled, 1 == enabled)
+    uint8_t parity = (pUSARTx->CR1 >> USART_CR1_PCE_BIT) &0x1U;
+
+    for (uint32_t i = 0; i < len; i++)
+    {
+        // wait for RxNE
+        status_t status = USART_WaitForRxNE(pUSARTx);
+        if (status != STATUS_OK)
+        {
+            if (status == STATUS_ERROR)
+                (void) pUSARTx->DR; // clear error flag and discards pending word
+            return status;
+        }
+
+        uint32_t data = pUSARTx->DR;
+        if (M && !parity) // 9-bits per word
+        {
+            data &= 0x1FFU;
+
+            *(pRxBuffer++) = (uint8_t)(data & 0xFFU);
+            *(pRxBuffer++) = (uint8_t)((data >> 8U) & 0x1U);
+        }
+        else
+        {
+            // mask to 7-bits if necessary
+            data = (!M && parity) ? (data & 0x7FU) : data;
+            *pRxBuffer++ = (uint8_t)data;
+        }
+    }
+    return STATUS_OK;
 }
 
 // ***************************************************************
