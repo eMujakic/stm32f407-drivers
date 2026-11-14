@@ -323,6 +323,93 @@ status_t USART_WaitForFlag(USART_reg_t *pUSARTx, USART_flag_t flag, uint8_t val)
 }
 
 
+/**************************************************************************
+ * @fn		USART_SendData
+ *
+ * @brief	Blocking USART transmit.
+ *
+ * @details
+ * Waits for TxE before writing each data word, then waits for TC before
+ * returning. Data width is determined by word-length and parity control.
+ *
+ * @param[in] pUSARTHandle	Pointer to USART handle.
+ * @param[in] pTxBuffer		Pointer to Tx buffer.
+ * @param[in] len	        Number of data words to send.
+ *
+ * @return	STATUS_OK: All data words were sent and TC was set.
+ *          STATUS_ERROR: The peripheral or transmitter was disabled.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_TIMEOUT: A TXE or TC polling budget was exhausted.
+ *
+ * @note	The len argument counts data words, not necessarily bytes of
+ *          data. If sending 7-bits of data per word, the MSB is discarded
+ *          from each byte. If sending 9-bits of data per word, the
+ *          upper 7-bits of each 2-bytes is discarded.
+ * 
+ * @note    A timeout may occur after a partial transmission.
+ ***************************************************************************/
+status_t USART_SendData(USART_handle_t *pUSARTHandle, uint8_t *pTxBuffer, uint32_t len)
+{
+    // validate args
+    if (!pTxBuffer ||
+        (len == 0) ||
+        !pUSARTHandle ||
+        !pUSARTHandle->pUSARTx ||
+        !USART_IsValidInstance(pUSARTHandle->pUSARTx)
+        )
+    {
+        return STATUS_INVALID_PARAM;
+    }
+
+    USART_reg_t *pUSARTx = pUSARTHandle->pUSARTx;
+
+    // ensure peripheral is enabled
+    if ( (pUSARTx->CR1 & (1U << USART_CR1_UE_BIT)) == 0U)
+        return STATUS_ERROR;
+    
+    // ensure transmitter is enabled
+    if ( (pUSARTx->CR1 & (1U << USART_CR1_TE_BIT)) == 0U)
+        return STATUS_ERROR;
+
+    // extract M-bit (0 == 8-bit frame, 1 == 9-bit frame)
+    uint8_t M = (pUSARTx->CR1 >> USART_CR1_M_BIT) &0x1U;
+
+    // extract parity control (0 == disabled, 1 == enabled)
+    uint8_t parity = (pUSARTx->CR1 >> USART_CR1_PCE_BIT) &0x1U;
+    
+    for (uint32_t i = 0; i < len; i++)
+    {
+        // wait for TxE
+        status_t status = USART_WaitForFlag(pUSARTx, USART_FLAG_TXE, SET);
+        if (status != STATUS_OK)
+            return status;
+        
+        uint32_t data;
+        if (M && !parity)
+        {
+            data =  (uint32_t)pTxBuffer[0] |
+                    ((uint32_t) pTxBuffer[1] << 8U);
+            
+            // mask lowest 9-bits of data
+            data &= 0x1FFU;
+            pTxBuffer += 2;
+        }
+        else
+        {
+            data = *pTxBuffer;
+
+            if (!M && parity)
+                data &= 0x7FU;
+
+            pTxBuffer++;
+        }
+        pUSARTx->DR = data;
+    }
+
+    // wait for transmission complete
+    return USART_WaitForFlag(pUSARTx, USART_FLAG_TC, SET);
+}
+
 // ***************************************************************
 // ********************** INTERRUPT HELPERS **********************
 // ***************************************************************
