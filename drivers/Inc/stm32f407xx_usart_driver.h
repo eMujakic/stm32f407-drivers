@@ -10,6 +10,8 @@
 
 #include "stm32f407xx.h"
 
+#define USART_TIMEOUT 100000U // USART flag polling budget
+
 // ====================== USART baud-rate macros =============================
 #define USART_BAUD_9600     9600U
 #define USART_BAUD_19200    19200U
@@ -132,6 +134,8 @@ status_t USART_PeripheralControl(USART_reg_t *pUSARTx,
 status_t USART_PeriClkCtl(USART_reg_t *pUSARTx, uint8_t enable);    // Enables/disables the clock for a given USART base addr
 
 uint8_t  USART_GetFlag(USART_reg_t *pUSARTx, USART_flag_t flag);    // Returns value of a flag for a USART peripheral
+status_t USART_WaitForFlag(USART_reg_t *pUSARTx,
+    USART_flag_t flag, uint8_t val);                                // Spins until flag==val or timeout occurs
 
 void USART_IRQHandling(USART_handle_t *pUSARTHandle);               // Dispatcher for USART interrupts
 

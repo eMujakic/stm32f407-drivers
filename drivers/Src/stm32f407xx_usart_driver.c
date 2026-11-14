@@ -276,6 +276,53 @@ uint8_t USART_GetFlag(USART_reg_t *pUSARTx, USART_flag_t flag)
     }
 }
 
+/**************************************************************************
+ * @fn		USART_WaitForFlag
+ *
+ * @brief	Polls until flag == val or polling budget is exceeded.
+ *
+ * @param[in] pUSARTx	Pointer to USART base address.
+ * @param[in] flag		desired flag to poll.
+ * @param[in] val		Desired value of flag (0 or 1).
+ *
+ * @return	STATUS_OK: flag == val
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_TIMEOUT: The polling budget was exceeded.
+ *
+ * @note	This API returns STATUS_INVALID_PARAM if polling for the CTS
+ *          flag and the peripheral is a UART peripheral (UART4/UART5).
+ ***************************************************************************/
+status_t USART_WaitForFlag(USART_reg_t *pUSARTx, USART_flag_t flag, uint8_t val)
+{
+    // validate arguments
+    if (!pUSARTx || !USART_IsValidInstance(pUSARTx))
+        return STATUS_INVALID_PARAM;
+    
+    if (flag < USART_FLAG_PE ||
+        flag > USART_FLAG_CTS)
+        return STATUS_INVALID_PARAM;
+
+    if (val > 1U)
+        return STATUS_INVALID_PARAM;
+
+    if (USART_IsUART(pUSARTx) && flag == USART_FLAG_CTS)
+        return STATUS_INVALID_PARAM;
+    
+    uint32_t timeout = USART_TIMEOUT;
+    while(1)
+    {
+        // check desired flag
+        if (USART_GetFlag(pUSARTx, flag) == val)
+            break;
+            
+        // check timeout
+        if (timeout == 0U) return STATUS_TIMEOUT;
+        timeout--;
+    }
+    return STATUS_OK;
+}
+
+
 // ***************************************************************
 // ********************** INTERRUPT HELPERS **********************
 // ***************************************************************
