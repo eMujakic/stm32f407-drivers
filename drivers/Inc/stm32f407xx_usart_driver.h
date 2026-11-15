@@ -48,6 +48,7 @@ typedef enum
 
 // ====================== USART Word-Length enum =============================
 // note: the USART word length includes the parity bit if parity is enabled
+// note: the parity bit is stored in the MSB
 typedef enum
 {
     USART_WORD_LEN_8 = 0U,

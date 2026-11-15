@@ -335,6 +335,10 @@ uint8_t USART_GetFlag(USART_reg_t *pUSARTx, USART_flag_t flag)
  *
  * @note	This API returns STATUS_INVALID_PARAM if polling for the CTS
  *          flag and the peripheral is a UART peripheral (UART4/UART5).
+ * 
+ * @note    This API is not error-aware. That is, it does not check error
+ *          flags while polling. A STATUS_TIMEOUT or STATUS_OK value may 
+ *          be returned even though an error flag is asserted in SR.
  ***************************************************************************/
 status_t USART_WaitForFlag(USART_reg_t *pUSARTx, USART_flag_t flag, uint8_t val)
 {
@@ -429,7 +433,7 @@ status_t USART_SendData(USART_handle_t *pUSARTHandle, uint8_t *pTxBuffer, uint32
             return status;
         
         uint32_t data;
-        if (M && !parity)
+        if (M && !parity) // 9 data-bits
         {
             data =  (uint32_t)pTxBuffer[0] |
                     ((uint32_t) pTxBuffer[1] << 8U);
@@ -513,7 +517,7 @@ status_t USART_ReceiveData(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, uin
         if (status != STATUS_OK)
         {
             if (status == STATUS_ERROR)
-                (void) pUSARTx->DR; // clear error flag and discards pending word
+                (void) pUSARTx->DR; // clears error flag and discards pending word
             return status;
         }
 
