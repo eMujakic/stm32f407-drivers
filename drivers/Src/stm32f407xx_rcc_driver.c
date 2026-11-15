@@ -78,9 +78,6 @@ uint32_t RCC_GetHCLKSpeed(void)
  * @brief	Gets the value of the APB1 clock prescaler.
  *
  * @return	The APB1 clock divisor (1, 2, 4, 8, 16).
- *
- * @note	This function assumes that all I2C peripherals are hanging
- *          off of the APB1 bus.
  ***************************************************************************/
  static uint8_t RCC_GetAPB1Prescaler(void)
  {
@@ -96,16 +93,55 @@ uint32_t RCC_GetHCLKSpeed(void)
 }
 
 /**************************************************************************
+ * @fn		RCC_GetAPB2Prescaler
+ *
+ * @brief	Gets the value of the APB2 clock prescaler.
+ *
+ * @return	The APB2 clock divisor (1, 2, 4, 8, 16).
+ ***************************************************************************/
+static uint8_t RCC_GetAPB2Prescaler(void)
+{
+    uint32_t reg = RCC->CFGR;
+    uint8_t val = (reg >> RCC_CFGR_PPRE2_BIT) & (0x7U);
+    
+    if (val == 4U) return 2U;
+    if (val == 5U) return 4U;
+    if (val == 6U) return 8U;
+    if (val == 7U) return 16U;
+
+    return 1U;
+}
+
+/**************************************************************************
  * @fn		RCC_GetPCLK1Speed
  *
  * @brief	Returns the speed of PCLK1.
  *
  * @return	PCLK speed in Hz.
+ * 
+ * @note    PCLK1 refers to the APB1 bus clock.
  ***************************************************************************/
 uint32_t RCC_GetPCLK1Speed(void)
 {
     uint32_t hclk = RCC_GetHCLKSpeed();
     uint32_t prescaler = RCC_GetAPB1Prescaler();
+
+    return hclk / prescaler;
+}
+
+/**************************************************************************
+ * @fn		RCC_GetPCLK2Speed
+ *
+ * @brief	Returns the speed of PCLK2.
+ *
+ * @return	PCLK speed in Hz.
+ * 
+ * @note    PCLK2 refers to the APB2 bus clock.
+ ***************************************************************************/
+uint32_t RCC_GetPCLK2Speed(void)
+{
+    uint32_t hclk = RCC_GetHCLKSpeed();
+    uint32_t prescaler = RCC_GetAPB2Prescaler();
 
     return hclk / prescaler;
 }

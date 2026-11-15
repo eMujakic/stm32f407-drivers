@@ -28,6 +28,7 @@ uint32_t RCC_GetHCLKSpeed(void);            // Returns speed of device HCLK (SYS
 uint32_t RCC_HzToMHz(uint32_t hz);          // Returns the number of MHz in hz
 
 // uint8_t RCC_GetAPB1Prescaler(void);         //
-uint32_t RCC_GetPCLK1Speed(void);           //
+uint32_t RCC_GetPCLK1Speed(void);           // Returns the value of the APB1 bus clock.
+uint32_t RCC_GetPCLK2Speed(void);           // Returns the value of the APB2 bus clock.
 
 #endif /* INC_STM32F407XX_RCC_DRIVER_H_ */
