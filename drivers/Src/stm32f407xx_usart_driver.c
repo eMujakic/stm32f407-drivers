@@ -94,6 +94,51 @@ static status_t USART_WaitForRxNE(USART_reg_t *pUSARTx)
     return STATUS_OK;
 }
 
+/**************************************************************************
+ * @fn		USART_SetBaudRate
+ *
+ * @brief	Calculates and sets the mantissa and fraction values in the
+ *          BRR register for the desired baud rate.
+ *
+ * @details
+ * Uses PCLK2 for USART1/6, and PCLK1 for all other USART/UART
+ * peripherals.
+ *
+ * @param[in] pUSARTHandle  Pointer to handle for USART/UART peripheral.
+ *
+ * @return	STATUS_OK: BRR register was successfully configured.
+ *          STATUS_INVALID_PARAM: The calculated mantissa is outside the
+ *          valid range 1-4095.
+ *
+ * @note	BRR is left unchanged if STATUS_INVALID_PARAM is returned.
+ ***************************************************************************/
+static status_t f(USART_handle_t *pUSARTHandle)
+{
+    USART_reg_t *pUSARTx    = pUSARTHandle->pUSARTx;
+    USART_config_t config   = pUSARTHandle->USART_Config;
+
+    // get peripheral clock value
+    uint32_t pclk;
+    if (pUSARTx == USART1 || pUSARTx == USART6)
+        pclk = RCC_GetPCLK2Speed(); // APB2 clock
+    else
+        pclk = RCC_GetPCLK1Speed(); // APB1 clock
+
+    uint32_t scaled_div = (uint32_t)(((uint64_t)pclk + (config.USART_Baud / 2U)) / (config.USART_Baud));
+
+    uint32_t oversampling   = (16U - (8U * config.USART_Oversampling));
+    uint32_t mantissa       = scaled_div / oversampling;
+    uint32_t frac           = scaled_div - (mantissa * oversampling);
+
+    if (mantissa > 0xFFFU || mantissa == 0U)
+        return STATUS_INVALID_PARAM;
+    
+    // write value to BRR register
+    pUSARTx->BRR = (mantissa << 4U) | frac;
+
+    return STATUS_OK;
+}
+
 // ***************************************************************
 // ********************* API IMPLEMENTATIONS *********************
 // ***************************************************************
