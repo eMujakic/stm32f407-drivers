@@ -112,7 +112,7 @@ static status_t USART_WaitForRxNE(USART_reg_t *pUSARTx)
  *
  * @note	BRR is left unchanged if STATUS_INVALID_PARAM is returned.
  ***************************************************************************/
-static status_t f(USART_handle_t *pUSARTHandle)
+static status_t USART_SetBaudRate(USART_handle_t *pUSARTHandle)
 {
     USART_reg_t *pUSARTx    = pUSARTHandle->pUSARTx;
     USART_config_t config   = pUSARTHandle->USART_Config;
@@ -415,6 +415,177 @@ status_t USART_WaitForFlag(USART_reg_t *pUSARTx, USART_flag_t flag, uint8_t val)
     return STATUS_OK;
 }
 
+/**************************************************************************
+ * @fn		USART_Init
+ *
+ * @brief	Initializes USART peripheral according to config structure.
+ *
+ * @details
+ * Validates the handle and configurations, enables peripheral clock,
+ * disables interrupt sources, and disables the peripheral before
+ * configuring. Configures transmit/receive mode, stop-bits, word length,
+ * parity, hardware flow control, oversampling, and baud rate.
+ * Initializes runtime handle state and enables the peripheral before 
+ * returning.
+ *
+ * @param[in] pUSARTHandle  Pointer to a USART handle.
+ *
+ * @return	STATUS_OK: Peripheral was successfully configured.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *
+ * @note	This API returns STATUS_INVALID_PARAM if using fraction stop-
+ *          bits or hardware flow control on a UART (UART4/5) peripheral.
+ * 
+ * @note    If baud-rate configuration fails, the peripheral is reset and
+ *          STATUS_INVALID_PARAM is returned.
+ ***************************************************************************/
+status_t USART_Init(USART_handle_t *pUSARTHandle)
+{
+    // validate inputs
+    if (!pUSARTHandle || !pUSARTHandle->pUSARTx)
+        return STATUS_INVALID_PARAM;
+
+    if (!USART_IsValidInstance(pUSARTHandle->pUSARTx))
+        return STATUS_INVALID_PARAM;
+
+    // validate configuration values
+    USART_config_t config = pUSARTHandle->USART_Config;
+
+    if (config.USART_Mode < USART_MODE_TX_ONLY ||
+        config.USART_Mode > USART_MODE_TX_RX)
+        return STATUS_INVALID_PARAM;
+
+    if (config.USART_Baud == 0U)
+        return STATUS_INVALID_PARAM;
+
+    if (config.USART_NumStopBits < USART_STOP_BITS_1 ||
+        config.USART_NumStopBits > USART_STOP_BITS_1_5)
+        return STATUS_INVALID_PARAM;
+
+    if (config.USART_WordLen < USART_WORD_LEN_8 ||
+        config.USART_WordLen > USART_WORD_LEN_9)
+        return STATUS_INVALID_PARAM;
+
+    if (config.USART_ParityCtl < USART_PARITY_DISABLED ||
+        config.USART_ParityCtl > USART_PARITY_ODD)
+        return STATUS_INVALID_PARAM;
+    
+    if (config.USART_HWFlowCtl < USART_HW_FLOW_CTL_NONE ||
+        config.USART_HWFlowCtl > USART_HW_FLOW_CTL_RTS_CTS)
+        return STATUS_INVALID_PARAM;
+
+    if (config.USART_Oversampling < USART_OVERSAMPLING_16 ||
+        config.USART_Oversampling > USART_OVERSAMPLING_8)
+        return STATUS_INVALID_PARAM;
+
+    // validate UART4/UART5 restrictions
+    if (USART_IsUART(pUSARTHandle->pUSARTx))
+    {
+        if (config.USART_HWFlowCtl != USART_HW_FLOW_CTL_NONE)
+            return STATUS_INVALID_PARAM;
+        
+        if (config.USART_NumStopBits != USART_STOP_BITS_1 &&
+            config.USART_NumStopBits != USART_STOP_BITS_2)
+            return STATUS_INVALID_PARAM;
+    }
+
+    USART_reg_t *pUSARTx = pUSARTHandle->pUSARTx;
+
+    // =========== Enable peripheral clock ===========
+    USART_PeriClkCtl(pUSARTx, ENABLE);
+
+    // =========== Busy check ===========
+    // TODO: check if busy and return STATUS_BUSY
+
+    // =========== Disable interrupts ===========
+    USART_DisableInterrupts(pUSARTx);
+
+    // =========== Disable peripheral ===========
+    USART_PeripheralControl(pUSARTx, DISABLE);
+
+    // =========== Configure mode ===========
+
+    // enable transmitter
+    pUSARTx->CR1 |= (1U << USART_CR1_TE_BIT);
+    // enable receiver
+    pUSARTx->CR1 |= (1U << USART_CR1_RE_BIT);
+
+    // disable receiver
+    if (config.USART_Mode == USART_MODE_TX_ONLY)
+        pUSARTx->CR1 &= ~(1U << USART_CR1_RE_BIT);
+
+    // disable transmitter
+    else if (config.USART_Mode == USART_MODE_RX_ONLY)
+        pUSARTx->CR1 &= ~(1U << USART_CR1_TE_BIT);
+
+    // =========== configure stop-bits ===========
+    // clear current bit-field
+    pUSARTx->CR2 &= ~(0x3U << USART_CR2_STOP_BIT);
+
+    // set new bit-field
+    pUSARTx->CR2 |= ((uint32_t)config.USART_NumStopBits << USART_CR2_STOP_BIT);
+
+    // =========== Configure word-length ===========
+    // clear current M-bit
+    pUSARTx->CR1 &= ~(1U << USART_CR1_M_BIT);
+
+    // set configured wordLen
+    pUSARTx->CR1 |= (config.USART_WordLen << USART_CR1_M_BIT);
+
+    // =========== Configure Parity ===========
+    if (config.USART_ParityCtl == USART_PARITY_DISABLED)
+    {
+        // disable parity
+        pUSARTx->CR1 &= ~(1U << USART_CR1_PCE_BIT);
+    }
+    else
+    {
+        // enable parity
+        pUSARTx->CR1 |= (1U << USART_CR1_PCE_BIT);
+
+        // parity selection
+        if (config.USART_ParityCtl == USART_PARITY_EVEN)
+            pUSARTx->CR1 &= ~(1U << USART_CR1_PS_BIT);
+        else
+            pUSARTx->CR1 |= (1U << USART_CR1_PS_BIT);
+    }
+
+    // =========== Configure HW Flow-control ===========
+    // clear current configuration
+    pUSARTx->CR3 &= ~((1U << USART_CR3_CTSE_BIT) | (1U << USART_CR3_RTSE_BIT));
+
+    // enable CTS
+    if (config.USART_HWFlowCtl == USART_HW_FLOW_CTL_CTS ||
+        config.USART_HWFlowCtl == USART_HW_FLOW_CTL_RTS_CTS)
+        pUSARTx->CR3 |= (1U << USART_CR3_CTSE_BIT);
+
+    // enable RTS
+    if (config.USART_HWFlowCtl == USART_HW_FLOW_CTL_RTS ||
+        config.USART_HWFlowCtl == USART_HW_FLOW_CTL_RTS_CTS)
+        pUSARTx->CR3 |= (1U << USART_CR3_RTSE_BIT);
+
+    // =========== configure oversampling ===========
+    if (config.USART_Oversampling == USART_OVERSAMPLING_16)
+        pUSARTx->CR1 &= ~(1U << USART_CR1_OVER8_BIT);
+    else
+        pUSARTx->CR1 |= (1U << USART_CR1_OVER8_BIT);
+
+    // =========== configure baud ===========
+    status_t status = USART_SetBaudRate(pUSARTHandle);
+    if (status != STATUS_OK)
+    {
+        USART_Reset(pUSARTx);
+        return status;
+    }
+
+    // =========== Initialize runtime handle state ===========
+    // TODO
+
+    // =========== enable peripheral ===========
+    USART_PeripheralControl(pUSARTx, ENABLE);
+        
+    return STATUS_OK;
+}
 
 /**************************************************************************
  * @fn		USART_SendData
@@ -587,6 +758,37 @@ status_t USART_ReceiveData(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, uin
 // ***************************************************************
 // ********************** INTERRUPT HELPERS **********************
 // ***************************************************************
+
+/**************************************************************************
+ * @fn		USART_DisableInterrupts
+ *
+ * @brief	Disables all USART interrupt sources.
+ *
+ * @param[in] pUSARTx   Pointer to USART base address.
+ *
+ * @return	None.
+ *
+ * @note	This function immediately returns if invalid pointer is passed.
+ ***************************************************************************/
+static void USART_DisableInterrupts(USART_reg_t *pUSARTx)
+{
+    if (!pUSARTx || !USART_IsValidInstance(pUSARTx))
+        return;
+    
+    // disable CR1 interrupts
+    pUSARTx->CR1&=~((1U << USART_CR1_PEIE_BIT)  |
+                    (1U << USART_CR1_TXEIE_BIT) |
+                    (1U << USART_CR1_TCIE_BIT)  |
+                    (1U << USART_CR1_RXNEIE_BIT)|
+                    (1U << USART_CR1_IDLEIE_BIT));
+    
+    // disable CR2 interrupts
+    pUSARTx->CR2&=~(1U << USART_CR2_LBDIE_BIT);
+
+    // disable CR3 interrupts
+    pUSARTx->CR3&=~((1U << USART_CR3_CTSIE_BIT) |
+                    (1U << USART_CR3_EIE_BIT));
+}
 
 
 // ***************************************************************
