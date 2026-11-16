@@ -7,6 +7,9 @@
 
 #include "stm32f407xx_usart_driver.h"
 
+// ******************* Function Prototypes ******************
+static void USART_DisableInterrupts(USART_reg_t *pUSARTx);
+
 // ***************************************************************
 // ******************* PRIVATE HELPER FUNCTIONS ******************
 // ***************************************************************
