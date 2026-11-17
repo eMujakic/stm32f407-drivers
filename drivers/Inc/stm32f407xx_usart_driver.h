@@ -12,6 +12,11 @@
 
 #define USART_TIMEOUT 100000U // USART flag polling budget
 
+// ====================== USART State Macros ======================
+#define USART_READY             0U
+#define USART_BUSY              1U  
+#define USART_RECOVERY_REQUIRED 2U
+
 // ====================== USART baud-rate macros =============================
 #define USART_BAUD_9600     9600U
 #define USART_BAUD_19200    19200U
@@ -114,6 +119,16 @@ typedef struct
 {
     USART_reg_t     *pUSARTx;
     USART_config_t  USART_Config;
+
+    // ============= Interrupt State =============
+    uint8_t                 *pRxBuffer;
+    uint8_t                 *pTxBuffer;
+
+    uint32_t                RxLen;
+    uint32_t                TxLen;
+
+    volatile uint8_t        RxState;
+    volatile uint8_t        TxState;
 } USART_handle_t;
 
 /*********************************************************************************

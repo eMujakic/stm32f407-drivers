@@ -801,20 +801,53 @@ static void USART_DisableInterrupts(USART_reg_t *pUSARTx)
 /**************************************************************************
  * @fn		USART_SendDataIT
  *
- * @brief	TODO
+ * @brief	Starts a interrupt-driven USART/UART data transmission.
  *
  * @details
- * TODO
+ * Validates arguments and handle TxState. Saves the transmit buffer
+ * pointer and length in the handle, sets TxState to USART_BUSY,
+ * disables TC interrupts and enables TXE interrupts.
  *
- * @param[in] TODO		TODO
+ * @param[in] pUSARTHandle	Pointer to USART/UART handle.
+ * @param[in] pTxBuffer		Pointer to transmit buffer.
+ * @param[in] len	        Number of words to transmit.
  *
- * @return	None.
+ * @return	STATUS_OK: State was saved and interrupts were enabled
+ *          successfully.
+ *          STATUS_BUSY: The passed USART handle is busy in transmission.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
  *
- * @note	TODO
+ * @note	The TxBuffer is not copied, it must remain unchanged until
+ *          the transmit-complete notification.
+ * 
+ * @note    The RxState is unaffected here. This allows an independent
+ *          interrupt-driven receive to run concurrently.
  ***************************************************************************/
 status_t USART_SendDataIT(USART_handle_t *pUSARTHandle, uint8_t *pTxBuffer, uint32_t len)
 {
+    // validate inputs
+    if (!pUSARTHandle || !pUSARTHandle->pUSARTx ||
+        !USART_IsValidInstance(pUSARTHandle->pUSARTx))
+        return STATUS_INVALID_PARAM;
 
+    if (!pTxBuffer || len == 0U)
+        return STATUS_INVALID_PARAM;
+    
+    if(pUSARTHandle->TxState != USART_READY)
+        return STATUS_BUSY;
+    
+    // update handle runtime state
+    pUSARTHandle->pTxBuffer = pTxBuffer;
+    pUSARTHandle->TxLen     = len;
+    pUSARTHandle->TxState   = USART_BUSY;
+
+    // disable TCIE
+    pUSARTHandle->pUSARTx->CR1 &= ~(1U << USART_CR1_TCIE_BIT);
+
+    // enable TXEIE interrupts
+    pUSARTHandle->pUSARTx->CR1 |= (1U << USART_CR1_TXEIE_BIT);
+    
+    return STATUS_OK;
 }
 
 /**************************************************************************
