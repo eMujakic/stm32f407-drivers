@@ -121,24 +121,34 @@ typedef struct
  * 					Check function definitions for more information
  *********************************************************************************/
 
+// ===================== Config APIs =====================
 status_t USART_ConfigInit(USART_config_t *pConfig);				    // Sets USART_config_t struct to safe default values
 status_t USART_Init(USART_handle_t *pUSARTHandle);				    // Configures an USART peripheral according to USART_config_t
 status_t USART_Reset(USART_reg_t *pUSARTx);					        // Resets a USART peripheral to default register values
 
+// ===================== Transfer APIs =====================
 status_t USART_SendData(USART_handle_t *pUSARTHandle,
     uint8_t *pTxBuffer, uint32_t len);                              // Send data using USART
 status_t USART_ReceiveData(USART_handle_t *pUSARTHandle,
     uint8_t *pRxBuffer, uint32_t len);                              // Receive data using USART
 
+// ===================== Control APIs =====================
 status_t USART_PeripheralControl(USART_reg_t *pUSARTx,
     uint8_t enable);                                                // Enables or disables USART peripheral
 status_t USART_PeriClkCtl(USART_reg_t *pUSARTx, uint8_t enable);    // Enables/disables the clock for a given USART base addr
 
+// ===================== Flag APIs =====================
 uint8_t  USART_GetFlag(USART_reg_t *pUSARTx, USART_flag_t flag);    // Returns value of a flag for a USART peripheral
 status_t USART_WaitForFlag(USART_reg_t *pUSARTx,
     USART_flag_t flag, uint8_t val);                                // Spins until flag==val or timeout occurs
 
+// ===================== Interrupt APIs =====================
 void USART_IRQHandling(USART_handle_t *pUSARTHandle);               // Dispatcher for USART interrupts
+
+status_t USART_SendDataIT(USART_handle_t *pUSARTHandle,
+    uint8_t *pTxBuffer, uint32_t len);                              // Interrupt-driven USART Send
+status_t USART_ReceiveDataIT(USART_handle_t *pUSARTHandle,
+    uint8_t *pRxBuffer, uint32_t len);                              // Interrupt-driven USART Receive
 
 void USART_ApplicationEventCallback(USART_handle_t *pHandle,
                                   USART_event_t event);               // Weakly implemented, called by private driver interrupt handlers

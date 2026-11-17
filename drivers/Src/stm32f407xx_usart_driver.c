@@ -798,6 +798,63 @@ static void USART_DisableInterrupts(USART_reg_t *pUSARTx)
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
 // ***************************************************************
 
+/**************************************************************************
+ * @fn		USART_SendDataIT
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
+status_t USART_SendDataIT(USART_handle_t *pUSARTHandle, uint8_t *pTxBuffer, uint32_t len)
+{
+
+}
+
+/**************************************************************************
+ * @fn		USART_ReceiveDataIT
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
+status_t USART_ReceiveDataIT(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, uint32_t len)
+{
+
+}
+
+/**************************************************************************
+ * @fn		USART_IRQHandling
+ *
+ * @brief	TODO
+ *
+ * @details
+ * TODO
+ *
+ * @param[in] TODO		TODO
+ *
+ * @return	None.
+ *
+ * @note	TODO
+ ***************************************************************************/
+void USART_IRQHandling(USART_handle_t *pUSARTHandle)
+{
+
+}
+
 __weak void USART_ApplicationEventCallback(USART_handle_t *pHandle, USART_event_t event)
 {
     (void) pHandle;

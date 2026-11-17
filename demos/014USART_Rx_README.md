@@ -19,8 +19,8 @@ Arduino's 5V pins. Both boards and the level shifter must
 share a common ground.
 
 ## Files
-- **STM32 Transmitter File**: `Src/014USART_Rx.c`
-- **Arduino Receiver File**: `arduino/014_USART_Arduino_Tx/014_USART_Arduino_Tx.ino`
+- **STM32 File**: `Src/014USART_Rx.c`
+- **Arduino File**: `arduino/014_USART_Arduino_Tx/014_USART_Arduino_Tx.ino`
 
 ## Wiring
 The hardware required to replicate this demo includes:
