@@ -853,20 +853,63 @@ status_t USART_SendDataIT(USART_handle_t *pUSARTHandle, uint8_t *pTxBuffer, uint
 /**************************************************************************
  * @fn		USART_ReceiveDataIT
  *
- * @brief	TODO
+ * @brief	Starts an interrupt-driven USART/UART receive.
  *
  * @details
- * TODO
+ * Validates arguments and RxState. Saves the receive buffer pointer and
+ * length in handle and sets RxState to USART_BUSY. Enables parity 
+ * interrupts (if appropriate), error interrupts, and RxNE interrupts.
  *
- * @param[in] TODO		TODO
+ * @param[in] pUSARTHandle	Pointer to USART/UART handle.
+ * @param[in] pRxBuffer		Pointer to receive buffer.
+ * @param[in] len	        Number of words to receive.
  *
- * @return	None.
+ * @return	STATUS_OK: State was saved and interrupts were enabled
+ *          successfully.
+ *          STATUS_BUSY: The passed USART handle is busy in reception.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
  *
- * @note	TODO
+ * @note	The destination buffer must remain valid until the
+ *          reception complete notification.
+ * 
+ * @note    The TxState is unaffected here. This allows an independent
+ *          interrupt-driven transmit to run concurrently.
  ***************************************************************************/
 status_t USART_ReceiveDataIT(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, uint32_t len)
 {
+    // validate inputs
+    if (!pUSARTHandle || !pUSARTHandle->pUSARTx ||
+        !USART_IsValidInstance(pUSARTHandle->pUSARTx))
+        return STATUS_INVALID_PARAM;
 
+    if (!pRxBuffer || len == 0U)
+        return STATUS_INVALID_PARAM;
+    
+    if(pUSARTHandle->RxState != USART_READY)
+        return STATUS_BUSY;
+    
+    // update runtime handle state
+    pUSARTHandle->pRxBuffer = pRxBuffer;
+    pUSARTHandle->RxLen     = len;
+    pUSARTHandle->RxState   = USART_BUSY;
+    
+    // enable error interrupts
+    pUSARTHandle->pUSARTx->CR3 |= (1U << USART_CR3_EIE_BIT);
+
+    // enable parity interrupts if parity is enabled
+    if(pUSARTHandle->pUSARTx->CR1 & (1U << USART_CR1_PCE_BIT))
+    {
+        pUSARTHandle->pUSARTx->CR1 |= (1U << USART_CR1_PEIE_BIT);
+    }
+    else
+    {
+        pUSARTHandle->pUSARTx->CR1 &= ~(1U << USART_CR1_PEIE_BIT);
+    }
+
+    // enable RXNE interrupts
+    pUSARTHandle->pUSARTx->CR1 |= (1U << USART_CR1_RXNEIE_BIT);
+
+    return STATUS_OK;
 }
 
 /**************************************************************************
