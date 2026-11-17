@@ -582,7 +582,12 @@ status_t USART_Init(USART_handle_t *pUSARTHandle)
     }
 
     // =========== Initialize runtime handle state ===========
-    // TODO
+    pUSARTHandle->pRxBuffer = NULL;
+    pUSARTHandle->pTxBuffer = NULL;
+    pUSARTHandle->RxLen     = 0U;
+    pUSARTHandle->TxLen     = 0U;
+    pUSARTHandle->RxState   = USART_READY;
+    pUSARTHandle->TxState   = USART_READY;
 
     // =========== enable peripheral ===========
     USART_PeripheralControl(pUSARTx, ENABLE);
