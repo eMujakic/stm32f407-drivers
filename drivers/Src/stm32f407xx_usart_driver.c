@@ -1010,6 +1010,70 @@ static uint8_t USART_HandleRxNE(USART_handle_t *pUSARTHandle)
     return 0U;
 }
 
+/**************************************************************************
+ * @fn		USART_HandleTxE
+ *
+ * @brief	Handles a pending USART TxE interrupt.
+ *
+ * @param[in] pUSARTHandle  Pointer to handle for USART peripheral.
+ *
+ * @return	1U: A user-callback was issued and the dispatcher should stop
+ *          dispatching.
+ *          0U: A standard DR write was performed and the dispatcher can
+ *          continue.
+ *
+ * @note	Just like blocking transmissions, TxLen should count the number
+ *          of words to transfer, not bytes, since a 9-bit word requires
+ *          two bytes of storage.
+ ***************************************************************************/
+static uint8_t USART_HandleTxE(USART_handle_t *pUSARTHandle)
+{
+    // validate interrupt state
+    if (pUSARTHandle->TxState != USART_BUSY ||
+        !pUSARTHandle->pTxBuffer            ||
+        !pUSARTHandle->TxLen)
+    {
+        USART_EnterRecoveryRequired(pUSARTHandle, USART_EVT_INVALID_STATE);
+        return 1U;
+    }
+
+    USART_reg_t *pUSARTx    = pUSARTHandle->pUSARTx;
+
+    uint8_t M       = (pUSARTx->CR1 >> USART_CR1_M_BIT) & 0x1U;
+    uint8_t parity  = (pUSARTx->CR1 >> USART_CR1_PCE_BIT) & 0x1U;
+
+    uint32_t data;
+
+    if (M && !parity) // 9 data-bits
+    {
+        data =  (uint32_t)(pUSARTHandle->pTxBuffer)[0] |
+                ((uint32_t) (pUSARTHandle->pTxBuffer)[1] << 8U);
+        
+        // mask lowest 9-bits of data
+        data &= 0x1FFU;
+        (pUSARTHandle->pTxBuffer) += 2;
+    }
+    else
+    {
+        data = *(pUSARTHandle->pTxBuffer);
+
+        if (!M && parity) data &= 0x7FU;
+        
+        (pUSARTHandle->pTxBuffer)++;
+    }
+    pUSARTx->DR = data;
+    pUSARTHandle->TxLen--;
+
+    if (pUSARTHandle->TxLen == 0U)
+    {
+        // disable TxE interrupts and enable TC interrupts
+        pUSARTx->CR1 &= ~(1U << USART_CR1_TXEIE_BIT);
+        pUSARTx->CR1 |= (1U << USART_CR1_TCIE_BIT);
+    }
+
+    return 0U;
+}
+
 
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
