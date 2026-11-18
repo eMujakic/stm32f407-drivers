@@ -814,7 +814,7 @@ static void USART_CloseTransmission(USART_handle_t *pUSARTHandle)
     if (!pUSARTHandle || !pUSARTHandle->pUSARTx)
         return;
 
-    // TODO disable tx interrupts
+    // disable tx interrupts
     pUSARTHandle->pUSARTx->CR1 &= ~((1U << USART_CR1_TCIE_BIT) | (1U << USART_CR1_TXEIE_BIT));
     
     pUSARTHandle->TxState   = USART_READY;
@@ -1074,6 +1074,34 @@ static uint8_t USART_HandleTxE(USART_handle_t *pUSARTHandle)
     return 0U;
 }
 
+/**************************************************************************
+ * @fn		USART_HandleTC
+ *
+ * @brief	Handles a pending USART TC interrupt.
+ *
+ * @param[in] pUSARTHandle  Pointer to handle for USART peripheral.
+ *
+ * @return	1U: Indicating a callback was issued and the dispatcher should
+ *          return.
+ ***************************************************************************/
+static uint8_t USART_HandleTC(USART_handle_t *pUSARTHandle)
+{
+    // validate interrupt state
+    if (pUSARTHandle->TxState != USART_BUSY ||
+        pUSARTHandle->TxLen != 0U)
+    {
+        USART_EnterRecoveryRequired(pUSARTHandle, USART_EVT_INVALID_STATE);
+        return 1U;
+    }
+
+    // clear TC flag
+    pUSARTHandle->pUSARTx->SR = ~(1U << USART_SR_TC_BIT);
+
+    // close transmission and notify user
+    USART_CloseTransmission(pUSARTHandle);
+    USART_ApplicationEventCallback(pUSARTHandle, USART_EVT_TX_DONE);
+    return 1U;
+}
 
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
