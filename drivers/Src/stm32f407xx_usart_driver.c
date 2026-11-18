@@ -1166,6 +1166,14 @@ status_t USART_SendDataIT(USART_handle_t *pUSARTHandle, uint8_t *pTxBuffer, uint
     
     if(pUSARTHandle->TxState != USART_READY)
         return STATUS_BUSY;
+
+    // ensure peripheral is enabled
+    if ( (pUSARTHandle->pUSARTx->CR1 & (1U << USART_CR1_UE_BIT)) == 0U)
+        return STATUS_ERROR;
+    
+    // ensure transmitter is enabled
+    if ( (pUSARTHandle->pUSARTx->CR1 & (1U << USART_CR1_TE_BIT)) == 0U)
+        return STATUS_ERROR;
     
     // update handle runtime state
     pUSARTHandle->pTxBuffer = pTxBuffer;
@@ -1218,6 +1226,14 @@ status_t USART_ReceiveDataIT(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, u
     
     if(pUSARTHandle->RxState != USART_READY)
         return STATUS_BUSY;
+
+    // ensure peripheral is enabled
+    if ( (pUSARTHandle->pUSARTx->CR1 & (1U << USART_CR1_UE_BIT)) == 0U)
+        return STATUS_ERROR;
+    
+    // ensure receiver is enabled
+    if ( (pUSARTHandle->pUSARTx->CR1 & (1U << USART_CR1_RE_BIT)) == 0U)
+        return STATUS_ERROR;
     
     // update runtime handle state
     pUSARTHandle->pRxBuffer = pRxBuffer;
@@ -1246,20 +1262,67 @@ status_t USART_ReceiveDataIT(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, u
 /**************************************************************************
  * @fn		USART_IRQHandling
  *
- * @brief	TODO
+ * @brief	Handles USART interrupts by dispatching interrupt handlers.
  *
  * @details
- * TODO
+ * Validates the handle and peripheral instance, then dispatches events in
+ * the following order: (Rx-errors -> RxNE -> TxE -> TC -> CTS).
+ * 
+ * Handles the first enabled Rx-error before normal data processing.
+ * 
+ * Stops dispatching whenver a handler issues an application callback,
+ * since the callback may modify handle state or terminate a transfer.
  *
- * @param[in] TODO		TODO
+ * @param[in] pUSARTHandle	Pointer to USART/UART handle.
  *
  * @return	None.
- *
- * @note	TODO
  ***************************************************************************/
 void USART_IRQHandling(USART_handle_t *pUSARTHandle)
 {
+    // validate pointers
+    if (!pUSARTHandle || !pUSARTHandle->pUSARTx ||
+        !USART_IsValidInstance(pUSARTHandle->pUSARTx))
+    {
+        return;
+    }
 
+    USART_reg_t *pUSARTx = pUSARTHandle->pUSARTx;
+
+    // handles first enabled receive error, returns true if error detected and handled
+    if (USART_HandleRxErrors(pUSARTHandle))
+        return;
+
+    // handle RxNE interrupts
+    if (USART_GetFlag(pUSARTx, USART_FLAG_RXNE) &&
+        (pUSARTx->CR1 & (1U << USART_CR1_RXNEIE_BIT)))
+    {
+        if (USART_HandleRxNE(pUSARTHandle))
+            return;
+    }
+
+    // handle TXE interrupts
+    if (USART_GetFlag(pUSARTx, USART_FLAG_TXE) &&
+        (pUSARTx->CR1 & (1U << USART_CR1_TXEIE_BIT)))
+    {
+        if (USART_HandleTxE(pUSARTHandle))
+            return;
+    }
+
+    // handle TC interrupts
+    if (USART_GetFlag(pUSARTx, USART_FLAG_TC) &&
+        (pUSARTx->CR1 & (1U << USART_CR1_TCIE_BIT)))
+    {
+        if (USART_HandleTC(pUSARTHandle))
+            return;
+    }
+
+    // handle CTS (clear-to-send) interrupts
+    if (USART_GetFlag(pUSARTx, USART_FLAG_CTS) &&
+        (pUSARTx->CR3 & (1U << USART_CR3_CTSIE_BIT)))
+    {
+        if(USART_HandleCTS(pUSARTHandle))
+            return;
+    }
 }
 
 __weak void USART_ApplicationEventCallback(USART_handle_t *pHandle, USART_event_t event)
