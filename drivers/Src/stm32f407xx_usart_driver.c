@@ -853,6 +853,43 @@ static void USART_DisableInterrupts(USART_reg_t *pUSARTx)
                     (1U << USART_CR3_EIE_BIT));
 }
 
+/**************************************************************************
+ * @fn		USART_EnterRecoveryRequired
+ *
+ * @brief	Puts interrupt driven USART handle into recovery-required
+ *          state.
+ *
+ * @details
+ * Disables all interrupts, sets state to USART_RECOVERY_REQUIRED, and
+ * leaves recovery responsiblity to user's callback.
+ *
+ * @param[in] pUSARTHandle  Pointer to handle for USART peripheral.
+ * @param[in] event         Desired event to notify user of.
+ *
+ * @return	None.
+ * 
+ * @note    This API issues a notification for each transition into the
+ *          USART_RECOVERY_REQUIRED state.
+ ***************************************************************************/
+static void USART_EnterRecoveryRequired(USART_handle_t *pUSARTHandle, USART_event_t event)
+{
+    // disable interrupts 
+    USART_DisableInterrupts(pUSARTHandle->pUSARTx);
+
+    // don't issue duplicate recovery callbacks
+    if (pUSARTHandle->RxState == USART_RECOVERY_REQUIRED &&
+        pUSARTHandle->TxState == USART_RECOVERY_REQUIRED)
+        return;
+
+    // set handle state
+    pUSARTHandle->RxState = USART_RECOVERY_REQUIRED;
+    pUSARTHandle->TxState = USART_RECOVERY_REQUIRED;
+
+    // notify user
+    USART_ApplicationEventCallback(pUSARTHandle, event);
+}
+
+
 
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
