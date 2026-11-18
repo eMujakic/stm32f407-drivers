@@ -952,6 +952,64 @@ static uint8_t USART_HandleRxErrors(USART_handle_t *pUSARTHandle)
     return 0U;
 }
 
+/**************************************************************************
+ * @fn		USART_HandleRxNE
+ *
+ * @brief	Handles USART RxNE interrupts.
+ *
+ * @param[in] pUSARTHandle  Pointer to handle for USART peripheral.
+ *
+ * @return	1U: A user-callback was issued and the dispatcher should stop
+ *          dispatching.
+ *          0U: A standard DR read was performed and the dispatcher can
+ *          continue.
+ *
+ * @note	Just like blocking receptions, RxLen should count the number
+ *          of words to receive, not bytes, since a 9-bit word requires
+ *          two bytes of storage.
+ ***************************************************************************/
+static uint8_t USART_HandleRxNE(USART_handle_t *pUSARTHandle)
+{
+    // validate interrupt state
+    if (pUSARTHandle->RxState != USART_BUSY ||
+        !pUSARTHandle->pRxBuffer            ||
+        !pUSARTHandle->RxLen)
+    {
+        (void) pUSARTHandle->pUSARTx->DR;
+        USART_EnterRecoveryRequired(pUSARTHandle, USART_EVT_INVALID_STATE);
+        return 1U;
+    }
+
+    USART_reg_t *pUSARTx = pUSARTHandle->pUSARTx;
+
+    uint8_t M       = (pUSARTx->CR1 >> USART_CR1_M_BIT) &0x1U;
+    uint8_t parity  = (pUSARTx->CR1 >> USART_CR1_PCE_BIT) &0x1U;
+
+    uint32_t data = pUSARTx->DR;
+    if (M && !parity) // 9-bits per word
+    {
+        data &= 0x1FFU;
+
+        *(pUSARTHandle->pRxBuffer++) = (uint8_t)(data & 0xFFU);
+        *(pUSARTHandle->pRxBuffer++) = (uint8_t)((data >> 8U) & 0x1U);
+    }
+    else
+    {
+        // mask to 7-bits if necessary
+        data = (!M && parity) ? (data & 0x7FU) : data;
+        *(pUSARTHandle->pRxBuffer++) = (uint8_t)data;
+    }
+    pUSARTHandle->RxLen--;
+
+    if (pUSARTHandle->RxLen == 0U)
+    {
+        USART_CloseReception(pUSARTHandle);
+        USART_ApplicationEventCallback(pUSARTHandle, USART_EVT_RX_DONE);
+        return 1U;
+    }
+    return 0U;
+}
+
 
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
