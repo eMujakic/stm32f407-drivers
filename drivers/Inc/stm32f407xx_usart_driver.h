@@ -33,7 +33,15 @@
 // ====================== USART event enum =============================
 typedef enum
 {
-    PLACEHOLDER = 0U
+    USART_EVT_INVALID_STATE     = 0U,
+    USART_EVT_TX_DONE           = 1U,
+    USART_EVT_RX_DONE           = 2U,
+    USART_EVT_CTS               = 3U,
+    USART_EVT_OVR               = 4U,
+    USART_EVT_NF                = 5U,
+    USART_EVT_FE                = 6U,
+    USART_EVT_PE                = 7U,
+    USART_EVT_IDLE              = 8U,
 } USART_event_t;
 
 // ====================== USART Flag enum =============================

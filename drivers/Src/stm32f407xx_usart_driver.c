@@ -768,6 +768,61 @@ status_t USART_ReceiveData(USART_handle_t *pUSARTHandle, uint8_t *pRxBuffer, uin
 // ***************************************************************
 
 /**************************************************************************
+ * @fn		USART_CloseReception
+ *
+ * @brief	Closes an interrupt-driven USART reception.
+ *
+ * @details
+ * Validates pointers, disables Rx interrupts (EIE, PEIE, & RXNEIE),
+ * updates handle RxState to USART_READY, sets RxLen to 0, and nulls-out
+ * pRxBuffer.
+ *
+ * @param[in] pUSARTHandle  Pointer to USART handle.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void USART_CloseReception(USART_handle_t *pUSARTHandle)
+{
+    if (!pUSARTHandle || !pUSARTHandle->pUSARTx)
+        return;
+
+    // disable rx interrupts
+    pUSARTHandle->pUSARTx->CR3 &= ~(1U << USART_CR3_EIE_BIT);
+    pUSARTHandle->pUSARTx->CR1 &= ~((1U << USART_CR1_PEIE_BIT) | (1U << USART_CR1_RXNEIE_BIT));
+
+    
+    pUSARTHandle->RxState   = USART_READY;
+    pUSARTHandle->pRxBuffer = NULL;
+    pUSARTHandle->RxLen     = 0U;
+}
+
+/**************************************************************************
+ * @fn		USART_CloseTransmission 
+ *
+ * @brief	Closes interrupt-driven USART transmission.
+ *
+ * @details
+ * Validates pointers, disables Tx interrupts (TCIE & TXEIE), sets TxState
+ * to USART_READY, nulls-out pTxBuffer, and sets TxLen to 0.
+ *
+ * @param[in] pUSARTHandle  Pointer to USART handle.
+ *
+ * @return	None.
+ ***************************************************************************/
+static void USART_CloseTransmission(USART_handle_t *pUSARTHandle)
+{
+    if (!pUSARTHandle || !pUSARTHandle->pUSARTx)
+        return;
+
+    // TODO disable tx interrupts
+    pUSARTHandle->pUSARTx->CR1 &= ~((1U << USART_CR1_TCIE_BIT) | (1U << USART_CR1_TXEIE_BIT));
+    
+    pUSARTHandle->TxState   = USART_READY;
+    pUSARTHandle->pTxBuffer = NULL;
+    pUSARTHandle->TxLen     = 0U;
+}
+
+/**************************************************************************
  * @fn		USART_DisableInterrupts
  *
  * @brief	Disables all USART interrupt sources.
