@@ -1103,6 +1103,28 @@ static uint8_t USART_HandleTC(USART_handle_t *pUSARTHandle)
     return 1U;
 }
 
+/**************************************************************************
+ * @fn		USART_HandleCTS
+ *
+ * @brief	Handles a pending USART CTS interrupt.
+ *
+ * @param[in] pUSARTHandle  Pointer to handle for USART peripheral.
+ *
+ * @return	1U: Indicating a callback was issued and the dispatcher should
+ *          return.
+ *
+ * @note	CTS interrupts are only enabled if the user calls the 
+ *          USART_CTSNotification API.
+ ***************************************************************************/
+static uint8_t USART_HandleCTS(USART_handle_t *pUSARTHandle)
+{
+    // clear CTS flag
+    pUSARTHandle->pUSARTx->SR = ~(1U << USART_SR_CTS_BIT);
+
+    USART_ApplicationEventCallback(pUSARTHandle, USART_EVT_CTS);
+    return 1U;
+}
+
 // ***************************************************************
 // **************** INTERRUPT API IMPLEMENTATIONS ****************
 // ***************************************************************
