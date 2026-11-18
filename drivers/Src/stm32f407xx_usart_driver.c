@@ -889,6 +889,68 @@ static void USART_EnterRecoveryRequired(USART_handle_t *pUSARTHandle, USART_even
     USART_ApplicationEventCallback(pUSARTHandle, event);
 }
 
+/**************************************************************************
+ * @fn		USART_HandleRxErrors
+ *
+ * @brief	Handles enabled USART Rx errors.
+ *
+ * @details
+ * Checks pending receive errors against their interrupt-enable bits. If
+ * an error is detected, it is cleared by reading DR. The handle is then
+ * put into recovery state, the user is notified of the error, and 1U is
+ * returned to the ISR dispatcher.
+ *
+ * @param[in] pUSARTHandle  Pointer to handle for USART peripheral.
+ *
+ * @return	1U: An error was detected, cleared, and the user was notified.
+ *          0U: No errors were detected.
+ *
+ * @note	Only the first matching error is reported with the following
+ *          priority (ORE -> NF -> FE -> PE).
+ ***************************************************************************/
+static uint8_t USART_HandleRxErrors(USART_handle_t *pUSARTHandle)
+{
+    USART_reg_t *pUSARTx = pUSARTHandle->pUSARTx;
+    uint32_t SR = pUSARTx->SR;
+
+    // handle OVR
+    uint32_t interruptEnabled = (pUSARTx->CR3 & (1U << USART_CR3_EIE_BIT)) ||
+                                (pUSARTx->CR1 & (1U << USART_CR1_RXNEIE_BIT));
+    if ((SR & (1U << USART_SR_ORE_BIT)) && interruptEnabled)
+    {
+        (void) pUSARTx->DR;
+        USART_EnterRecoveryRequired(pUSARTHandle, USART_EVT_OVR);
+        return 1U;
+    }
+
+    interruptEnabled = pUSARTx->CR3 & (1U << USART_CR3_EIE_BIT);
+
+    // handle noise
+    if ((SR & (1U << USART_SR_NF_BIT)) && interruptEnabled)
+    {
+        (void) pUSARTx->DR;
+        USART_EnterRecoveryRequired(pUSARTHandle, USART_EVT_NF);
+        return 1U;
+    }
+
+    // handle frame-error
+    if ((SR & (1U << USART_SR_FE_BIT)) && interruptEnabled)
+    {
+        (void) pUSARTx->DR;
+        USART_EnterRecoveryRequired(pUSARTHandle, USART_EVT_FE);
+        return 1U;
+    }
+
+    // handle parity-error
+    interruptEnabled = (pUSARTx->CR1 & (1U << USART_CR1_PEIE_BIT));
+    if ((SR & (1U << USART_SR_PE_BIT)) && interruptEnabled)
+    {
+        (void) pUSARTx->DR;
+        USART_EnterRecoveryRequired(pUSARTHandle, USART_EVT_PE);
+        return 1U;
+    }
+    return 0U;
+}
 
 
 // ***************************************************************
