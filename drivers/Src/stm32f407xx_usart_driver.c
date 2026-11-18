@@ -1325,6 +1325,59 @@ void USART_IRQHandling(USART_handle_t *pUSARTHandle)
     }
 }
 
+/**************************************************************************
+ * @fn		USART_CTSNotificationCtl
+ *
+ * @brief	Enables/Disables CTS event notifications
+ *
+ * @details
+ * When enabling notifications, this API verifies that CTS flow control is
+ * enabled, it does not enable it unconditionally. It also clears any 
+ * pending CTS flag before enabling CTSIE.
+ *
+ * @param[in] pUSARTHandle	Pointer to USART/UART handle.
+ * @param[in] EnOrDi        ENABLE to enable CTSIE, DISABLE to disable 
+ *                          CTSIE
+ *
+ * @return	STATUS_OK: Notification control was successfully updated.
+ *          STATUS_INVALID_PARAM: An invalid argument was passed.
+ *          STATUS_ERROR: Attempted to enable CTSIE without CTS flow control
+ *          being enabled.
+ *
+ * @note	Enabling CTS notifications clears a pending CTS flag.
+ ***************************************************************************/
+status_t USART_CTSNotificationCtl(USART_handle_t *pUSARTHandle, uint8_t EnOrDi)
+{
+    // validate inputs
+    if (!pUSARTHandle || !pUSARTHandle->pUSARTx ||
+        !USART_IsValidInstance(pUSARTHandle->pUSARTx))
+        return STATUS_INVALID_PARAM;
+
+    if (EnOrDi == ENABLE)
+    {
+        // ensure CTS is enabled
+        if((pUSARTHandle->pUSARTx->CR3 & (1U << USART_CR3_CTSE_BIT)) == 0U)
+            return STATUS_ERROR;
+
+        // clear pending CTS
+        pUSARTHandle->pUSARTx->SR = ~(1U << USART_SR_CTS_BIT);
+
+        // enable CTS interrupts
+        pUSARTHandle->pUSARTx->CR3 |= (1U << USART_CR3_CTSIE_BIT);
+    }
+    else if (EnOrDi == DISABLE)
+    {
+        // disable CTS interrupts
+        pUSARTHandle->pUSARTx->CR3 &= ~(1U << USART_CR3_CTSIE_BIT);
+    }
+    else
+    {
+        return STATUS_INVALID_PARAM;
+    }
+        
+    return STATUS_OK;
+}
+
 __weak void USART_ApplicationEventCallback(USART_handle_t *pHandle, USART_event_t event)
 {
     (void) pHandle;

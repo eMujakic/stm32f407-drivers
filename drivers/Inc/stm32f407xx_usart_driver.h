@@ -173,6 +173,9 @@ status_t USART_SendDataIT(USART_handle_t *pUSARTHandle,
 status_t USART_ReceiveDataIT(USART_handle_t *pUSARTHandle,
     uint8_t *pRxBuffer, uint32_t len);                              // Interrupt-driven USART Receive
 
+status_t USART_CTSNotificationCtl(USART_handle_t *pHandle,
+    uint8_t EnOrDi);                                                // Enables/Disables CTS event notifications
+
 void USART_ApplicationEventCallback(USART_handle_t *pHandle,
                                   USART_event_t event);               // Weakly implemented, called by private driver interrupt handlers
 
