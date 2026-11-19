@@ -4,29 +4,30 @@ implemented in bare-metal C without vendor HAL libraries.
 
 ## Overview
 This project implements a register-level abstraction of selected STM32F407 peripherals, including GPIO,
-SPI, I2C, NVIC, and RCC drivers.
+SPI, I2C, USART/UART, NVIC, and RCC drivers.
 
 The current implementation supports:
 - GPIO pin configuration (mode, output type, speed, pull-up/pull-down)
 - Digital read/write operations
 - SPI peripheral configuration, send, receive, and interrupt handling
 - I2C peripheral configuration, master/slave transfers, and interrupt handling
+- USART/UART peripheral configuration, blocking and interrupt-driven transmission/reception, and error handling
 - NVIC interrupt enabling/disabling, and interrupt priority configuration
 - EXTI-based interrupt configuration and handling
 - Peripheral clock control via RCC
 
 ### Technical Highlights
 - Register-level peripheral control (no STM32 HAL)
-- Safe interrupt handling using write-1-to-clear patterns
+- Peripheral-specific interrupt handling and flag-clearing sequences
 - Modular driver architecture
 - Defensive parameter validation and status-based APIs
 - Clear Doxygen-style documentation
 
 ## Demos
 ### GPIO
-- **`001LED_toggle_PP`**: Demonstrates GPIO LED toggle capabilities using push/pull output.
+- **`001LED_toggle_PP`**: Demonstrates GPIO LED toggle capabilities using push-pull output.
 - **`002LED_toggle_OD`**: Demonstrates GPIO LED toggle capabilities using open-drain output.
-- **`003LED_button`**: Demonstrates GPIO input and output by having a hardware button power an on-board LED using GPIO.
+- **`003LED_button`**: Demonstrates GPIO input and output by reading a hardware button and controlling an on-board LED using GPIO.
 - **`004button_interrupt`**: Demonstrates basic GPIO interrupt delivery functionality by having an on-board button deliver an interrupt. The ISR is then responsible for toggling the LED.
 ### SPI
 - **`005SPI_TX`**: A basic demo demonstrating SPI TX capabilities.
@@ -38,6 +39,10 @@ The current implementation supports:
 - [**`010I2C_MasterRx`**](./demos/010I2C_MasterRx_README.md): This demo uses the custom I2C drivers on an STM32F407 Discovery board acting as an I2C master to receive length and data information from an Arduino Uno configured as an I2C slave.
 - [**`011I2C_MasterRxInterrupt`**](./demos/011I2C_MasterRxInterrupt_README.md): This demo uses the custom interrupt-driven I2C drivers on an STM32F407 Discovery board acting as an I2C master to receive length and data information from an Arduino Uno configured as an I2C slave.
 - [**`012I2C_SlaveTxInterrupt`**](./demos/012I2C_SlaveTxInterrupt_README.md): This demo uses the custom interrupt-driven I2C-slave code for the STM32F407 to send a variable-length message to an Arduino acting as an I2C master.
+### USART
+- [**`013USART_Tx`**](./demos/013USART_Tx_README.md): This demo uses the custom USART/UART drivers for the STM32F407 to transmit a message to an Arduino Uno R3 board.
+- [**`014USART_Rx`**](./demos/014USART_Rx_README.md): This demo uses the custom USART/UART drivers for the STM32F407 to receive a variable-length message from an Arduino Uno board.
+- [**`015USART_RxInterrupt`**](./demos/015USART_RxInterrupt_README.md): This demo uses the custom interrupt-driven USART/UART drivers for the STM32F407 to receive a variable-length message from an Arduino Uno board.
 ## Directory Structure
 ```
 stm32f4xx_drivers/
@@ -55,14 +60,14 @@ stm32f4xx_drivers/
 │   ├── 010I2C_MasterRx.c               # I2C-master receive demo.
 │   ├── 011I2C_MasterRxInterrupt.c      # Interrupt-driven I2C-master receive demo.
 │   ├── 012I2C_SlaveTxInterrupt.c       # Interrupt-driven I2C-slave transmit demo.
+│   ├── 013USART_Tx.c                   # USART transmission demo.
+│   ├── 014USART_Rx.c                   # USART reception demo.
+│   ├── 015USART_RxInterrupt.c          # USART interrupt-driven reception demo.
 │   ├── syscalls.c                      # STM32CubeIDE auto-generated stub system calls.
 │   └── sysmem.c                        # STM32CubeIDE auto-generated heap management lib.
 ├── Startup/
 │   └── startup_stm32f407vgtx.s         # Startup assembly file: vector table, reset handler, etc.
-├── arduino/
-│   ├── 006SPI_arduino_RX.ino           # Arduino SPI slave to test SPI TX functionality.
-│   ├── 007_SPI_arduino_CMD.ino         # Arduino SPI slave code to test full-duplex functionality.
-│   └── 008_SPI_arduino_interrupt.ino   # Arduino SPI slave code to test SPI interrupt-support.
+├── arduino/                            # Arduino code used for communication demos
 ├── demos/                              # Demo documentation
 ├── docs/
 │   ├── images/                         # Images of Logic Analyzer Output or Hardware Config.
@@ -74,12 +79,14 @@ stm32f4xx_drivers/
 │   │   ├── stm32f407xx_spi_driver.h    # SPI-driver header file
 │   │   ├── stm32f407xx_nvic_driver.h   # NVIC-driver header file
 │   │   ├── stm32f407xx_rcc_driver.h    # RCC-driver header file
+│   │   ├── stm32f407xx_usart_driver.h  # USART-driver header file
 │   │   └── stm32f407xx_i2c_driver.h    # I2C-driver header file
 │   └── Src/
 │       ├── stm32f407xx_gpio_driver.c   # GPIO-driver C file
 │       ├── stm32f407xx_spi_driver.c    # SPI-driver C file
 │       ├── stm32f407xx_nvic_driver.c   # NVIC-driver C file
 │       ├── stm32f407xx_rcc_driver.c    # RCC-driver C file
+│       ├── stm32f407xx_usart_driver.c  # USART-driver C file
 │       └── stm32f407xx_i2c_driver.c    # I2C-driver C file
 ├── STM32F407VGTX_FLASH.ld              # Linker script for running firmware from flash.
 ├── STM32F407VGTX_RAM.ld                # Linker script for running firmware from SRAM.
@@ -105,7 +112,7 @@ Planned driver implementations:
 - [X] RCC
 - [X] SPI
 - [X] I2C
-- [ ] UART/USART
+- [X] UART/USART
 - [ ] Timer Peripherals
 - [ ] DMA Integration
 
