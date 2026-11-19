@@ -7,31 +7,43 @@
  *              message from an Arduino Uno board.
  *
  * @details
- * TODO
+ * A button-press starts a command/response exchange using the custom
+ * interrupt-driven USART/UART drivers:
  *
- * 1.   The STM32 sends the REQ_LEN_CMD (0x51) command code to the Arduino
- *      to request the length of the message.
- * 2.   The STM32 then reads the length of the message into the len
- *      variable.
- * 3.   The STM32 sends the SEND_MSG_CMD (0x52) to the Arduino, to request
- *      the message itself.
- * 4.   Finally, the STM32 reads the message into a buffer, and prints
- *      the buffer to the user.
+ * 1.   The STM32 arms reception of a one-byte message length, then sends
+ *      the REQ_LEN_CMD (0x51) command code to request the length from 
+ *      the Arduino.
+ * 2.   The STM32 waits for both command transmission and reception to
+ *      complete. The received length is stored in n.
+ * 3.   The STM32 arms reception of the specified number of message
+ *      bytes, then sends the SEND_MSG_CMD (0x52) command code to 
+ *      request the message itself from the Arduino.
+ * 4.   The STM32 waits for both command transmission and message
+ *      reception to complete, appends a null terminator, and prints
+ *      the message.
  *
- * Baud rate, word-length, parity, stop-bits, oversampling, and
- * hardware flow-control use the defaults provided by USART_ConfigInit().
+ * Baud rate, word-length, parity, stop-bits, and hardware 
+ * flow-control use the defaults provided by USART_ConfigInit().
  * The Arduino peer must match these settings for successful
  * communication.
  *
- * TODO
+ * Reception is armed before each command is transmitted so that the 
+ * STM32 is ready to receive the response from the Arduino immediately.
+ * USART2_IRQHandler() delegates interrupt processing to
+ * USART_IRQHandling(). The application callback updates completion and
+ * error flags.
+ * 
+ * Transfers are interrupt driven, but the main code busy-waits for
+ * completion. This program simply demonstrates the functionality of
+ * the interrupt-driven APIs.
  *
  * A bidirectional level shifter connects the STM32's 3.3V pins to the
  * Arduino's 5V pins. Both boards and the level shifter must
  * share a common ground.
  *
  * Connections through the level shifter:
- * Stm32-PA2 (TX) <-> Arduino-D0 (RX)
- * Stm32-PA3 (RX) <-> Arduino-D1 (TX)
+ * Stm32-PA2 (TX) --> Arduino-D0 (RX)
+ * Stm32-PA3 (RX) <-- Arduino-D1 (TX)
  *
  * @note    The STM32's Rx-buffer can hold at most 256 bytes of data.
  *          The Arduino should not send more than 255 bytes to ensure
@@ -80,19 +92,19 @@ static void gpio_init()
     GPIO_handle_t gpio_usart2;
     GPIO_ConfigInit(&gpio_usart2.GPIO_PinConfig);
 
-    gpio_usart2.pGPIOx = USART2_PORT;
-    gpio_usart2.GPIO_PinConfig.mode           = GPIO_MODE_ALTFN;    // alternate-functionality mode
-    gpio_usart2.GPIO_PinConfig.altFuncMode    = USART2_AF_MODE;     // set AF mode to usart2
-	gpio_usart2.GPIO_PinConfig.outType        = GPIO_OTYPE_PP;      // push-pull
-	gpio_usart2.GPIO_PinConfig.puPdCtl        = GPIO_NO_PUPD;
-	gpio_usart2.GPIO_PinConfig.speed          = GPIO_SPEED_HIGH;
+    gpio_usart2.pGPIOx                      = USART2_PORT;
+    gpio_usart2.GPIO_PinConfig.mode         = GPIO_MODE_ALTFN;    // alternate-functionality mode
+    gpio_usart2.GPIO_PinConfig.altFuncMode  = USART2_AF_MODE;     // set AF mode to usart2
+	gpio_usart2.GPIO_PinConfig.outType      = GPIO_OTYPE_PP;      // push-pull
+	gpio_usart2.GPIO_PinConfig.puPdCtl      = GPIO_NO_PUPD;
+	gpio_usart2.GPIO_PinConfig.speed        = GPIO_SPEED_HIGH;
 
     // Tx
-	gpio_usart2.GPIO_PinConfig.pinNumber      = USART2_TX;
+	gpio_usart2.GPIO_PinConfig.pinNumber    = USART2_TX;
     GPIO_Init(&gpio_usart2);
 
     // Rx
-    gpio_usart2.GPIO_PinConfig.pinNumber      = USART2_RX;
+    gpio_usart2.GPIO_PinConfig.pinNumber    = USART2_RX;
     GPIO_Init(&gpio_usart2);
 }
 
@@ -159,7 +171,7 @@ int main(void)
     // enable IRQ number for USART2
     NVIC_EnableIRQ(IRQ_NUM_USART2);
 
-    uint8_t n = 0U; // message length
+    uint8_t n   = 0U; // message length
     uint8_t cmd = REQ_LEN_CMD;
     status_t status;
     while(1)
@@ -172,9 +184,9 @@ int main(void)
         failure = 0U;
         memset(RxBuf, 0, sizeof(RxBuf));
 
-        // read message length
+        // arm message-length read reception before sending REQ_LEN_CMD
         Rx_Done = 0;
-        status = USART_ReceiveDataIT(&usart2, &n, 1U); // arm reception before transmit
+        status = USART_ReceiveDataIT(&usart2, &n, 1U);
         if(status != STATUS_OK)
         {
             reset_usart2();
@@ -191,6 +203,7 @@ int main(void)
             continue;
         }
 
+        // wait until length is received
         while((!Tx_Done || !Rx_Done) && !failure);
         if (failure)
         {
@@ -198,9 +211,9 @@ int main(void)
             continue;
         }
 
-        // read message
+        // arm message-read reception before sending SEND_MSG_CMD
         Rx_Done = 0;
-        status = USART_ReceiveDataIT(&usart2, RxBuf, n); // arm reception before Tx
+        status = USART_ReceiveDataIT(&usart2, (uint8_t*)RxBuf, n);
         if(status != STATUS_OK)
         {
             reset_usart2();
@@ -217,6 +230,7 @@ int main(void)
             continue;
         }
 
+        // wait until message is read
         while((!Tx_Done || !Rx_Done) && !failure);
         if (failure)
         {
@@ -249,7 +263,6 @@ void USART_ApplicationEventCallback(USART_handle_t *pHandle, USART_event_t event
     }
     else
     {
-        // printf("Error Event Detected: %d\n", event);
         failure = 1;
     }
 }
